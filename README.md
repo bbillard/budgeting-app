@@ -44,12 +44,15 @@ Puis ouvrir `http://127.0.0.1:5000`.
 
 ## Format CSV attendu
 
-L'import essaie de détecter automatiquement les colonnes suivantes (insensibles à la casse):
+Le format bancaire principal pris en charge est un CSV **séparé par `;`** avec en-têtes de type :
 
-- Date: `date`, `operation date`, `transaction date`
-- Description: `description`, `label`, `libellé`, `libelle`
-- Montant: `amount`, `montant`, `value`
-- Catégorie (optionnelle): `category`, `catégorie`, `categorie`
+- `Date de l'opération`
+- `Catégorie`
+- `Sous catégorie`
+- `Montant`
+- `Commentaire` + `Détail 1..6` (utilisés pour construire la description)
+
+L'import gère aussi la détection automatique de variantes de noms de colonnes (date/amount/category...).
 
 ## Règles de catégorisation
 
