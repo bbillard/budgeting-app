@@ -1,0 +1,15 @@
+{
+  "loyer": "Logement",
+  "uber": "Transport",
+  "sncf": "Transport",
+  "tram": "Transport",
+  "carrefour": "Alimentation",
+  "monoprix": "Alimentation",
+  "market": "Alimentation",
+  "amazon": "Achats",
+  "fnac": "Achats",
+  "ugc": "Loisirs",
+  "pharmacie": "Santé",
+  "cadeau": "Cadeaux",
+  "salaire": "Revenus"
+}
