@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Budget Local</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Budget personnel (offline)</h1>
+      <button id="themeBtn">Mode sombre</button>
+    </header>
+
+    <nav>
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="import">Importer</button>
+    </nav>
+
+    <section class="filters panel">
+      <select id="month"><option value="">Mois</option></select>
+      <select id="year"><option value="">Année</option></select>
+      <input type="date" id="startDate" />
+      <input type="date" id="endDate" />
+      <select id="categoryFilter"><option value="">Toutes catégories</option></select>
+      <label><input type="checkbox" id="includeExcluded" /> Inclure exclues</label>
+      <button id="applyFilters">Appliquer</button>
+    </section>
+
+    <main>
+      <section id="dashboard" class="tab-pane active">
+        <div class="cards">
+          <article class="card"><h3>Dépenses</h3><p id="expenses">0 €</p></article>
+          <article class="card"><h3>Revenus</h3><p id="income">0 €</p></article>
+          <article class="card"><h3>Solde</h3><p id="balance">0 €</p></article>
+        </div>
+        <div class="panel">
+          <h3>Répartition par catégorie</h3>
+          <div id="categoriesBars"></div>
+        </div>
+        <div class="panel">
+          <h3>Histogramme mensuel</h3>
+          <div id="monthlyBars" class="histogram"></div>
+        </div>
+      </section>
+
+      <section id="transactions" class="tab-pane">
+        <div class="panel row">
+          <input id="searchText" placeholder="Rechercher un libellé" />
+          <label><input type="checkbox" id="onlyUncategorized" /> À catégoriser</label>
+          <label><input type="checkbox" id="onlyExcluded" /> Exclues</label>
+          <select id="bulkCategory"><option value="">Catégorie bulk</option></select>
+          <button id="bulkApply">Valider sélection</button>
+        </div>
+        <div class="panel table-wrap">
+          <table id="transactionsTable">
+            <thead>
+              <tr>
+                <th></th><th>Date</th><th>Description</th><th>Montant</th><th>Catégorie</th><th>Exclure</th><th>% pris en compte</th><th>Montant effectif</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="import" class="tab-pane">
+        <div class="panel">
+          <h3>Importer un CSV bancaire</h3>
+          <input type="file" id="csvFile" accept=".csv" />
+          <button id="importBtn">Importer</button>
+          <p id="importStatus"></p>
+        </div>
+        <div class="panel row">
+          <button id="exportCsv">Exporter CSV filtré</button>
+          <button id="backupJson">Backup JSON</button>
+          <button id="resetDb" class="danger">Reset base</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
