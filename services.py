@@ -28,7 +28,7 @@ CATEGORIES = [
 
 
 def parse_amount(raw: str) -> float:
-    cleaned = raw.replace("€", "").replace(" ", "").replace(",", ".")
+    cleaned = raw.replace("€", "").replace(" ", "").replace("\u202f", "").replace(",", ".")
     return float(cleaned)
 
 
@@ -43,42 +43,114 @@ def parse_date(raw: str) -> str:
 
 
 def detect_column(headers: list[str], candidates: list[str]) -> str | None:
-    lowered = {h.lower(): h for h in headers}
+    lowered = {h.lower().strip(): h for h in headers}
     for candidate in candidates:
-        if candidate in lowered:
-            return lowered[candidate]
+        key = candidate.lower().strip()
+        if key in lowered:
+            return lowered[key]
     return None
 
 
+def detect_delimiter(decoded: str) -> str:
+    first_line = decoded.splitlines()[0] if decoded.splitlines() else ""
+    if first_line.count(";") >= first_line.count(","):
+        return ";"
+    return ","
+
+
+def normalize_category(raw: str) -> str:
+    value = (raw or "").strip()
+    lowered = value.lower().replace("é", "e").replace("à", "a")
+    if lowered in {"a categoriser", "à categoriser", "à catégoriser", "a catégoriser", ""}:
+        return DEFAULT_CATEGORY
+    return value
+
+
+def build_description(row: dict[str, str], description_col: str | None, type_col: str | None, detail_cols: list[str]) -> str:
+    fields: list[str] = []
+
+    if description_col:
+        desc = (row.get(description_col) or "").strip()
+        if desc:
+            fields.append(desc)
+
+    for col in detail_cols:
+        value = (row.get(col) or "").strip()
+        if value:
+            fields.append(value)
+
+    if type_col:
+        op_type = (row.get(type_col) or "").strip()
+        if op_type:
+            fields.append(op_type)
+
+    if not fields:
+        for col in row:
+            value = (row.get(col) or "").strip()
+            if value:
+                fields.append(value)
+
+    unique = []
+    seen = set()
+    for value in fields:
+        if value not in seen:
+            unique.append(value)
+            seen.add(value)
+    return " | ".join(unique)
+
+
 def import_csv(content: bytes) -> dict[str, Any]:
-    decoded = content.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(decoded))
+    try:
+        decoded = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        decoded = content.decode("cp1252")
+
+    delimiter = detect_delimiter(decoded)
+    reader = csv.DictReader(io.StringIO(decoded), delimiter=delimiter)
     rows = list(reader)
     if not rows:
         return {"imported": 0}
 
     headers = reader.fieldnames or []
-    date_col = detect_column(headers, ["date", "operation date", "transaction date"])
-    desc_col = detect_column(headers, ["description", "label", "libellé", "libelle"])
+    date_col = detect_column(headers, ["date", "operation date", "transaction date", "date de l'opération"])
     amount_col = detect_column(headers, ["amount", "montant", "value"])
     category_col = detect_column(headers, ["category", "catégorie", "categorie"])
+    sub_category_col = detect_column(headers, ["sous catégorie", "sous categorie", "sub category", "subcategory"])
+    description_col = detect_column(headers, ["description", "label", "libellé", "libelle", "commentaire"])
+    type_col = detect_column(headers, ["type de l'opération", "type de l'operation", "type"])
 
-    if not date_col or not desc_col or not amount_col:
-        raise ValueError("Colonnes requises non détectées automatiquement (date, description, montant).")
+    detail_cols = [
+        col
+        for col in headers
+        if col.lower().strip().startswith("détail") or col.lower().strip().startswith("detail")
+    ]
+
+    if not date_col or not amount_col:
+        raise ValueError("Colonnes requises non détectées automatiquement (date, montant).")
 
     now = datetime.now().strftime(DATETIME_FMT)
     imported = 0
     with get_conn() as conn:
         for row in rows:
-            description = (row.get(desc_col) or "").strip()
+            if not any((row.get(h) or "").strip() for h in headers):
+                continue
+
+            description = build_description(row, description_col, type_col, detail_cols)
             if not description:
                 continue
+
             date_val = parse_date(row[date_col])
             amount = parse_amount(row[amount_col])
-            category_original = (row.get(category_col) or DEFAULT_CATEGORY).strip() if category_col else DEFAULT_CATEGORY
+
+            category_original = normalize_category(row.get(category_col) or DEFAULT_CATEGORY)
+            sub_category = normalize_category(row.get(sub_category_col) or "") if sub_category_col else ""
+
             category = category_original
-            if not category or category.lower() == "à catégoriser":
+            if category == DEFAULT_CATEGORY:
                 category = infer_category(description)
+
+            if sub_category and sub_category != DEFAULT_CATEGORY and category != DEFAULT_CATEGORY:
+                category = f"{category} / {sub_category}"
 
             conn.execute(
                 """
@@ -87,7 +159,7 @@ def import_csv(content: bytes) -> dict[str, Any]:
                     category_original, is_excluded, split_ratio, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, 0, 1.0, ?, ?)
                 """,
-                (date_val, description, amount, amount, category, category_original or DEFAULT_CATEGORY, now, now),
+                (date_val, description, amount, amount, category, category_original, now, now),
             )
             imported += 1
     return {"imported": imported}

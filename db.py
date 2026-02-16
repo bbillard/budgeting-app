@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -26,6 +27,12 @@ CREATE INDEX IF NOT EXISTS idx_transactions_excluded ON transactions(is_excluded
 
 
 def get_db_path() -> Path:
+    override = os.getenv("BUDGET_DB_PATH")
+    if override:
+        path = Path(override)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
     data_dir = Path("./data")
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir / "budget.db"

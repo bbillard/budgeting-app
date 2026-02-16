@@ -61,7 +61,9 @@ async function loadTransactions() {
 }
 
 function categoryOptions(current) {
-  return window.ALL_CATEGORIES.map(c => `<option ${c===current?'selected':''}>${c}</option>`).join('');
+  const ordered = [...window.ALL_CATEGORIES];
+  if (current && !ordered.includes(current)) ordered.push(current);
+  return ordered.map(c => `<option ${c===current?'selected':''}>${c}</option>`).join('');
 }
 
 async function updateRow(tr) {
