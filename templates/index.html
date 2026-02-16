@@ -16,6 +16,7 @@
       <button class="tab active" data-tab="dashboard">Dashboard</button>
       <button class="tab" data-tab="transactions">Transactions</button>
       <button class="tab" data-tab="import">Importer</button>
+      <button class="tab" data-tab="categories">Catégories</button>
     </nav>
 
     <section class="filters panel">
@@ -30,6 +31,11 @@
 
     <main>
       <section id="dashboard" class="tab-pane active">
+        <div class="panel row">
+          <button id="toggleBreakdownLevel">Afficher secondaires</button>
+          <span id="dashboardScopeLabel" class="muted"></span>
+          <button id="clearDashboardScope" class="secondary">Réinitialiser vue</button>
+        </div>
         <div class="cards">
           <article class="card"><h3>Dépenses</h3><p id="expenses">0 €</p></article>
           <article class="card"><h3>Revenus</h3><p id="income">0 €</p></article>
@@ -76,6 +82,27 @@
           <button id="exportCsv">Exporter CSV filtré</button>
           <button id="backupJson">Backup JSON</button>
           <button id="resetDb" class="danger">Reset base</button>
+        </div>
+      </section>
+
+      <section id="categories" class="tab-pane">
+        <div class="panel row">
+          <input id="newMainCategory" placeholder="Nouvelle catégorie principale" />
+          <button id="addMainCategory">Ajouter catégorie</button>
+        </div>
+        <div class="panel row">
+          <select id="parentForSubcategory"><option value="">Catégorie parente</option></select>
+          <input id="newSubCategory" placeholder="Nouvelle sous-catégorie" />
+          <button id="addSubCategory">Ajouter sous-catégorie</button>
+        </div>
+        <div class="panel row">
+          <select id="categoryToDelete"><option value="">Catégorie à supprimer</option></select>
+          <button id="deleteCategory" class="danger">Supprimer catégorie</button>
+          <p class="muted">Les transactions associées passeront automatiquement en "À catégoriser".</p>
+        </div>
+        <div class="panel">
+          <h3>Arborescence des catégories</h3>
+          <div id="categoryTree"></div>
         </div>
       </section>
     </main>

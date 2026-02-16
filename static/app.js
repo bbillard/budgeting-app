@@ -1,6 +1,11 @@
 const fmt = (n) => `${Number(n).toFixed(2)} €`;
 const qs = (id) => document.getElementById(id);
 
+const state = {
+  breakdownLevel: 'primary',
+  dashboardParentCategory: ''
+};
+
 function fillSelect(select, items, placeholderLabel) {
   const previous = select.value;
   select.innerHTML = `<option value="">${placeholderLabel}</option>` + items.map(item => `<option>${item}</option>`).join('');
@@ -9,13 +14,30 @@ function fillSelect(select, items, placeholderLabel) {
   }
 }
 
+function toPrimaryCategory(category) {
+  return category.includes(' / ') ? category.split(' / ')[0] : category;
+}
+
 async function refreshCategories() {
   const categories = await fetch('/api/categories').then(r => r.json());
   window.ALL_CATEGORIES = categories;
+
   fillSelect(qs('categoryFilter'), categories, 'Toutes catégories');
   fillSelect(qs('bulkCategory'), categories, 'Catégorie bulk');
+  fillSelect(qs('categoryToDelete'), categories.filter(c => c !== 'À catégoriser'), 'Catégorie à supprimer');
+
+  const parentChoices = [...new Set(categories.map(toPrimaryCategory))].filter(c => c && c !== 'À catégoriser');
+  fillSelect(qs('parentForSubcategory'), parentChoices, 'Catégorie parente');
 }
 
+async function refreshCategoryTree() {
+  const tree = await fetch('/api/categories/tree').then(r => r.json());
+  const html = tree.map(node => {
+    const children = node.subcategories.map(sub => `<li>${sub}</li>`).join('');
+    return `<div><strong>${node.name}</strong>${children ? `<ul>${children}</ul>` : ''}</div>`;
+  }).join('');
+  qs('categoryTree').innerHTML = html || '<p class="muted">Aucune catégorie.</p>';
+}
 
 function currentFilters() {
   const p = new URLSearchParams();
@@ -25,11 +47,22 @@ function currentFilters() {
   if (qs('endDate').value) p.set('end_date', qs('endDate').value);
   if (qs('categoryFilter').value) p.set('category', qs('categoryFilter').value);
   if (qs('includeExcluded').checked) p.set('include_excluded', '1');
+  if (state.dashboardParentCategory) p.set('parent_category', state.dashboardParentCategory);
   return p;
+}
+
+function renderDashboardScopeLabel() {
+  const label = state.dashboardParentCategory
+    ? `Vue filtrée sur "${state.dashboardParentCategory}"`
+    : 'Vue globale';
+  qs('dashboardScopeLabel').textContent = `${label} — niveau: ${state.breakdownLevel === 'primary' ? 'catégories principales' : 'sous-catégories'}`;
+  qs('toggleBreakdownLevel').textContent = state.breakdownLevel === 'primary' ? 'Afficher secondaires' : 'Afficher principales';
 }
 
 async function loadDashboard() {
   const p = currentFilters();
+  p.set('level', state.breakdownLevel);
+
   const [s, c, m] = await Promise.all([
     fetch(`/api/summary?${p}`).then(r => r.json()),
     fetch(`/api/categories-breakdown?${p}`).then(r => r.json()),
@@ -40,17 +73,25 @@ async function loadDashboard() {
   qs('income').textContent = fmt(s.income);
   qs('balance').textContent = fmt(s.balance);
 
-  qs('categoriesBars').innerHTML = c.map(item => `
-    <div class="barline"><strong>${item.category}</strong> — ${fmt(item.amount)} (${item.percentage}%)
-      <div class="progress"><span style="width:${item.percentage}%"></span></div>
-    </div>
-  `).join('');
+  qs('categoriesBars').innerHTML = c.map(item => {
+    const isPrimaryClickable = state.breakdownLevel === 'primary';
+    const label = isPrimaryClickable
+      ? `<button class="category-link" data-category="${item.category}">${item.category}</button>`
+      : `<span>${item.category}</span>`;
+    return `
+      <div class="barline">${label} — ${fmt(item.amount)} (${item.percentage}%)
+        <div class="progress"><span style="width:${item.percentage}%"></span></div>
+      </div>
+    `;
+  }).join('');
 
   const max = Math.max(...m.map(x => x.expenses), 1);
   qs('monthlyBars').innerHTML = m.map(item => {
     const h = Math.max(8, (item.expenses / max) * 140);
     return `<div class="bar" style="height:${h}px" title="${item.month} ${fmt(item.expenses)}"><small>${item.month.slice(5)}</small></div>`;
   }).join('');
+
+  renderDashboardScopeLabel();
 }
 
 async function loadTransactions() {
@@ -105,6 +146,53 @@ function initTabs() {
   });
 }
 
+async function initCategoryManager() {
+  qs('addMainCategory').onclick = async () => {
+    const name = qs('newMainCategory').value.trim();
+    if (!name) return;
+    await fetch('/api/categories', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})
+    });
+    qs('newMainCategory').value = '';
+    await refreshCategories();
+    await refreshCategoryTree();
+    await loadDashboard();
+    await loadTransactions();
+  };
+
+  qs('addSubCategory').onclick = async () => {
+    const parent_name = qs('parentForSubcategory').value;
+    const name = qs('newSubCategory').value.trim();
+    if (!parent_name || !name) return;
+    await fetch('/api/categories', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, parent_name})
+    });
+    qs('newSubCategory').value = '';
+    await refreshCategories();
+    await refreshCategoryTree();
+  };
+
+  qs('deleteCategory').onclick = async () => {
+    const name = qs('categoryToDelete').value;
+    if (!name) return;
+    if (!confirm(`Supprimer la catégorie "${name}" ?`)) return;
+
+    await fetch('/api/categories/delete', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})
+    });
+
+    if (state.dashboardParentCategory === name || state.dashboardParentCategory === toPrimaryCategory(name)) {
+      state.dashboardParentCategory = '';
+      state.breakdownLevel = 'primary';
+    }
+
+    await refreshCategories();
+    await refreshCategoryTree();
+    await loadDashboard();
+    await loadTransactions();
+  };
+}
+
 async function init() {
   window.ALL_CATEGORIES = [];
   for (let m=1;m<=12;m++) qs('month').innerHTML += `<option value="${m}">${m}</option>`;
@@ -113,10 +201,34 @@ async function init() {
 
   initTabs();
   await refreshCategories();
+  await refreshCategoryTree();
+  await initCategoryManager();
+
   qs('applyFilters').onclick = async () => { await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
+
+  qs('toggleBreakdownLevel').onclick = async () => {
+    state.breakdownLevel = state.breakdownLevel === 'primary' ? 'secondary' : 'primary';
+    await loadDashboard();
+  };
+
+  qs('clearDashboardScope').onclick = async () => {
+    state.dashboardParentCategory = '';
+    state.breakdownLevel = 'primary';
+    await loadDashboard();
+    await loadTransactions();
+  };
+
+  qs('categoriesBars').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button.category-link');
+    if (!btn) return;
+    state.dashboardParentCategory = btn.dataset.category;
+    state.breakdownLevel = 'secondary';
+    await loadDashboard();
+    await loadTransactions();
+  });
 
   qs('transactionsTable').addEventListener('change', async (e) => {
     if (e.target.classList.contains('select-row')) return;
@@ -124,6 +236,7 @@ async function init() {
     if (!tr) return;
     await updateRow(tr);
     await refreshCategories();
+    await refreshCategoryTree();
     await loadDashboard();
     await loadTransactions();
   });
@@ -136,6 +249,7 @@ async function init() {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids, category})
     });
     await refreshCategories();
+    await refreshCategoryTree();
     await loadTransactions();
     await loadDashboard();
   };
@@ -149,6 +263,7 @@ async function init() {
     const json = await res.json();
     qs('importStatus').textContent = json.error || `${json.imported} ligne(s) importée(s)`;
     await refreshCategories();
+    await refreshCategoryTree();
     await loadDashboard();
     await loadTransactions();
   };
@@ -161,7 +276,10 @@ async function init() {
   qs('resetDb').onclick = async () => {
     if (!confirm('Confirmer reset complet ?')) return;
     await fetch('/api/reset', {method:'POST'});
+    state.dashboardParentCategory = '';
+    state.breakdownLevel = 'primary';
     await refreshCategories();
+    await refreshCategoryTree();
     await loadDashboard();
     await loadTransactions();
   };

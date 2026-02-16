@@ -5,6 +5,21 @@ import sqlite3
 from pathlib import Path
 
 
+BASE_CATEGORIES = [
+    "À catégoriser",
+    "Logement",
+    "Transport",
+    "Alimentation",
+    "Achats",
+    "Loisirs",
+    "Santé",
+    "Famille",
+    "Cadeaux",
+    "Revenus",
+    "Autres",
+]
+
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,6 +38,15 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 CREATE INDEX IF NOT EXISTS idx_transactions_excluded ON transactions(is_excluded);
+
+CREATE TABLE IF NOT EXISTS categories (
+    name TEXT PRIMARY KEY,
+    parent_name TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_name);
 """
 
 
@@ -47,3 +71,9 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA_SQL)
+        now = "1970-01-01 00:00:00"
+        for category in BASE_CATEGORIES:
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, NULL, ?, ?)",
+                (category, now, now),
+            )

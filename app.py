@@ -9,16 +9,19 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from db import init_db
 from services import (
+    add_category,
     bulk_update,
     category_breakdown,
+    delete_category,
     export_filtered_transactions,
     get_transactions,
     import_csv,
+    list_categories,
+    list_category_tree,
     monthly_stats,
     reset_db,
     summary,
     update_transaction,
-    list_categories,
 )
 
 app = Flask(__name__)
@@ -47,6 +50,25 @@ def api_monthly():
 @app.get("/api/categories")
 def api_categories():
     return jsonify(list_categories())
+
+
+@app.get("/api/categories/tree")
+def api_categories_tree():
+    return jsonify(list_category_tree())
+
+
+@app.post("/api/categories")
+def api_add_category():
+    payload = request.get_json(force=True)
+    created = add_category(payload.get("name", ""), payload.get("parent_name"))
+    return jsonify(created)
+
+
+@app.post("/api/categories/delete")
+def api_delete_category():
+    payload = request.get_json(force=True)
+    result = delete_category(payload.get("name", ""))
+    return jsonify(result)
 
 
 @app.get("/api/transactions")

@@ -8,7 +8,8 @@ Application locale de gestion de budget personnel basée sur **Flask + SQLite**.
   - total dépenses
   - total revenus
   - solde
-  - répartition par catégorie
+  - répartition par catégories principales (ou secondaires)
+  - drill-down par clic sur catégorie principale
   - histogramme mensuel
 - Import CSV bancaire avec mapping automatique (`date`, `description`, `montant`, `catégorie`).
 - Catégorisation modifiable transaction par transaction ou en masse.
@@ -84,3 +85,10 @@ Exemple:
 - Index SQLite sur date/catégorie/exclusion.
 - Liste transactions limitée à 1000 lignes en affichage pour garder l'UI réactive.
 - Le backend reste compatible avec des volumes >10k transactions.
+
+
+## Gestion des catégories
+
+- Onglet **Catégories** pour ajouter/supprimer des catégories principales et secondaires.
+- Une sous-catégorie est stockée sous la forme `Parent / Enfant`.
+- La suppression d'une catégorie réaffecte automatiquement les transactions concernées à `À catégoriser`.

@@ -6,25 +6,15 @@ from datetime import datetime
 from typing import Any
 
 from categorization import DEFAULT_CATEGORY, infer_category
-from db import get_conn
+from db import BASE_CATEGORIES, get_conn
 
 
 DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
+CATEGORIES = BASE_CATEGORIES
 
 
-CATEGORIES = [
-    "À catégoriser",
-    "Logement",
-    "Transport",
-    "Alimentation",
-    "Achats",
-    "Loisirs",
-    "Santé",
-    "Famille",
-    "Cadeaux",
-    "Revenus",
-    "Autres",
-]
+def now_str() -> str:
+    return datetime.now().strftime(DATETIME_FMT)
 
 
 def parse_amount(raw: str) -> float:
@@ -66,6 +56,36 @@ def normalize_category(raw: str) -> str:
     return value
 
 
+def split_category_levels(category: str) -> tuple[str, str | None]:
+    if " / " in category:
+        parent, child = category.split(" / ", 1)
+        return parent.strip(), child.strip() or None
+    return category.strip(), None
+
+
+def ensure_category_exists(category: str, conn=None) -> None:
+    category = normalize_category(category)
+    parent, child = split_category_levels(category)
+
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_conn()
+
+    stamp = now_str()
+    conn.execute(
+        "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, NULL, ?, ?)",
+        (parent, stamp, stamp),
+    )
+    if child:
+        conn.execute(
+            "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (f"{parent} / {child}", parent, stamp, stamp),
+        )
+
+    if owns_conn:
+        conn.close()
+
+
 def build_description(row: dict[str, str], description_col: str | None, type_col: str | None, detail_cols: list[str]) -> str:
     fields: list[str] = []
 
@@ -90,13 +110,96 @@ def build_description(row: dict[str, str], description_col: str | None, type_col
             if value:
                 fields.append(value)
 
-    unique = []
+    unique: list[str] = []
     seen = set()
     for value in fields:
         if value not in seen:
             unique.append(value)
             seen.add(value)
     return " | ".join(unique)
+
+
+def list_categories() -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT name FROM categories ORDER BY name COLLATE NOCASE ASC").fetchall()
+    existing = [r["name"] for r in rows]
+
+    ordered: list[str] = []
+    seen = set()
+    for category in [*CATEGORIES, *existing]:
+        if category and category not in seen:
+            ordered.append(category)
+            seen.add(category)
+    return ordered
+
+
+def list_category_tree() -> list[dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT name, parent_name FROM categories ORDER BY name COLLATE NOCASE ASC").fetchall()
+
+    tree_map: dict[str, list[str]] = {}
+    for row in rows:
+        parent = row["parent_name"]
+        name = row["name"]
+        if parent is None:
+            tree_map.setdefault(name, [])
+        else:
+            tree_map.setdefault(parent, []).append(name)
+
+    return [{"name": parent, "subcategories": sorted(children)} for parent, children in sorted(tree_map.items())]
+
+
+def add_category(name: str, parent_name: str | None = None) -> dict[str, Any]:
+    name = normalize_category(name)
+    if not name:
+        raise ValueError("Nom de catégorie vide")
+
+    stamp = now_str()
+    with get_conn() as conn:
+        if parent_name:
+            parent_name = normalize_category(parent_name)
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, NULL, ?, ?)",
+                (parent_name, stamp, stamp),
+            )
+            full_name = f"{parent_name} / {name}"
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (full_name, parent_name, stamp, stamp),
+            )
+            return {"name": full_name, "parent_name": parent_name}
+
+        conn.execute(
+            "INSERT OR IGNORE INTO categories (name, parent_name, created_at, updated_at) VALUES (?, NULL, ?, ?)",
+            (name, stamp, stamp),
+        )
+        return {"name": name, "parent_name": None}
+
+
+def delete_category(name: str) -> dict[str, int]:
+    target = normalize_category(name)
+    if target == DEFAULT_CATEGORY:
+        raise ValueError("Impossible de supprimer la catégorie par défaut")
+
+    with get_conn() as conn:
+        # Detect if it's a primary category
+        is_primary = conn.execute("SELECT 1 FROM categories WHERE name = ? AND parent_name IS NULL", (target,)).fetchone() is not None
+
+        if is_primary:
+            pattern = f"{target} / %"
+            tx = conn.execute(
+                "UPDATE transactions SET category = ?, updated_at = ? WHERE category = ? OR category LIKE ?",
+                (DEFAULT_CATEGORY, now_str(), target, pattern),
+            ).rowcount
+            conn.execute("DELETE FROM categories WHERE name = ? OR parent_name = ?", (target, target))
+            return {"updated_transactions": tx}
+
+        tx = conn.execute(
+            "UPDATE transactions SET category = ?, updated_at = ? WHERE category = ?",
+            (DEFAULT_CATEGORY, now_str(), target),
+        ).rowcount
+        conn.execute("DELETE FROM categories WHERE name = ?", (target,))
+        return {"updated_transactions": tx}
 
 
 def import_csv(content: bytes) -> dict[str, Any]:
@@ -128,8 +231,8 @@ def import_csv(content: bytes) -> dict[str, Any]:
     if not date_col or not amount_col:
         raise ValueError("Colonnes requises non détectées automatiquement (date, montant).")
 
-    now = datetime.now().strftime(DATETIME_FMT)
     imported = 0
+    stamp = now_str()
     with get_conn() as conn:
         for row in rows:
             if not any((row.get(h) or "").strip() for h in headers):
@@ -152,6 +255,8 @@ def import_csv(content: bytes) -> dict[str, Any]:
             if sub_category and sub_category != DEFAULT_CATEGORY and category != DEFAULT_CATEGORY:
                 category = f"{category} / {sub_category}"
 
+            ensure_category_exists(category, conn=conn)
+
             conn.execute(
                 """
                 INSERT INTO transactions (
@@ -159,9 +264,10 @@ def import_csv(content: bytes) -> dict[str, Any]:
                     category_original, is_excluded, split_ratio, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, 0, 1.0, ?, ?)
                 """,
-                (date_val, description, amount, amount, category, category_original, now, now),
+                (date_val, description, amount, amount, category, category_original, stamp, stamp),
             )
             imported += 1
+
     return {"imported": imported}
 
 
@@ -184,6 +290,10 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     if args.get("category"):
         where.append("category = ?")
         params.append(args["category"])
+    if args.get("parent_category"):
+        where.append("(category = ? OR category LIKE ?)")
+        params.append(args["parent_category"])
+        params.append(f"{args['parent_category']} / %")
     if args.get("search"):
         where.append("lower(description) LIKE ?")
         params.append(f"%{args['search'].lower()}%")
@@ -201,23 +311,6 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     where_clause = " WHERE " + " AND ".join(where) if where else ""
     return where_clause, params
 
-
-
-
-def list_categories() -> list[str]:
-    with get_conn() as conn:
-        rows = conn.execute("SELECT DISTINCT category FROM transactions WHERE trim(category) != '' ORDER BY category COLLATE NOCASE ASC").fetchall()
-
-    existing = [r["category"] for r in rows]
-    ordered: list[str] = []
-    seen = set()
-
-    for category in [*CATEGORIES, *existing]:
-        if category and category not in seen:
-            ordered.append(category)
-            seen.add(category)
-
-    return ordered
 
 def summary(args: dict[str, str]) -> dict[str, float]:
     where_clause, params = build_filters(args)
@@ -237,17 +330,35 @@ def summary(args: dict[str, str]) -> dict[str, float]:
 
 def category_breakdown(args: dict[str, str]) -> list[dict[str, Any]]:
     where_clause, params = build_filters(args)
-    q = f"""
-        SELECT category,
-               COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
-        FROM transactions
-        {where_clause}
-        GROUP BY category
-        HAVING amount > 0
-        ORDER BY amount DESC
-    """
+    level = args.get("level", "primary")
+
+    if level == "secondary":
+        q = f"""
+            SELECT category,
+                   COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
+            FROM transactions
+            {where_clause}
+            GROUP BY category
+            HAVING amount > 0
+            ORDER BY amount DESC
+        """
+    else:
+        q = f"""
+            SELECT CASE
+                     WHEN instr(category, ' / ') > 0 THEN substr(category, 1, instr(category, ' / ') - 1)
+                     ELSE category
+                   END AS category,
+                   COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
+            FROM transactions
+            {where_clause}
+            GROUP BY category
+            HAVING amount > 0
+            ORDER BY amount DESC
+        """
+
     with get_conn() as conn:
         rows = conn.execute(q, params).fetchall()
+
     total = sum(float(r["amount"]) for r in rows) or 1.0
     return [
         {"category": r["category"], "amount": float(r["amount"]), "percentage": round(float(r["amount"]) * 100 / total, 2)}
@@ -291,8 +402,10 @@ def update_transaction(transaction_id: int, payload: dict[str, Any]) -> None:
     params: list[Any] = []
 
     if "category" in payload:
+        category = normalize_category(payload["category"])
+        ensure_category_exists(category)
         fields.append("category = ?")
-        params.append(payload["category"])
+        params.append(category)
     if "is_excluded" in payload:
         fields.append("is_excluded = ?")
         params.append(1 if payload["is_excluded"] else 0)
@@ -304,7 +417,7 @@ def update_transaction(transaction_id: int, payload: dict[str, Any]) -> None:
         params.append(split_ratio)
 
     fields.append("updated_at = ?")
-    params.append(datetime.now().strftime(DATETIME_FMT))
+    params.append(now_str())
     params.append(transaction_id)
 
     with get_conn() as conn:
@@ -314,11 +427,13 @@ def update_transaction(transaction_id: int, payload: dict[str, Any]) -> None:
 def bulk_update(ids: list[int], category: str) -> int:
     if not ids:
         return 0
+    category = normalize_category(category)
+    ensure_category_exists(category)
     placeholders = ",".join("?" for _ in ids)
     with get_conn() as conn:
         result = conn.execute(
             f"UPDATE transactions SET category = ?, updated_at = ? WHERE id IN ({placeholders})",
-            [category, datetime.now().strftime(DATETIME_FMT), *ids],
+            [category, now_str(), *ids],
         )
     return result.rowcount
 

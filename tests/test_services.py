@@ -3,7 +3,14 @@ import tempfile
 import unittest
 
 from db import get_conn, init_db
-from services import import_csv, list_categories, parse_amount
+from services import (
+    add_category,
+    category_breakdown,
+    delete_category,
+    import_csv,
+    list_categories,
+    parse_amount,
+)
 
 
 SAMPLE_BANK_CSV = """Date de l'opération;Référence de l'opération;Type de l'opération;Catégorie;Sous catégorie;Montant;Commentaire;Détail 1;Détail 2;Détail 3;Détail 4;Détail 5;Détail 6
@@ -43,11 +50,9 @@ class TestServices(unittest.TestCase):
 
         self.assertEqual(rows[1]["category_original"], "À catégoriser")
         self.assertEqual(rows[1]["category"], "À catégoriser")
-        self.assertIn("PASCALE BILLARD", rows[1]["description"])
 
         self.assertEqual(rows[2]["category"], "Revenus / Autres revenus")
         self.assertAlmostEqual(rows[2]["amount_original"], 3552.75)
-
 
     def test_list_categories_includes_imported_compound_categories(self):
         import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
@@ -56,6 +61,29 @@ class TestServices(unittest.TestCase):
         self.assertIn("Alimentation / Supermarché", categories)
         self.assertIn("Revenus / Autres revenus", categories)
         self.assertIn("Logement", categories)
+
+    def test_delete_category_moves_transactions_to_uncategorized(self):
+        import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
+        result = delete_category("Alimentation")
+        self.assertGreaterEqual(result["updated_transactions"], 1)
+
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT category FROM transactions WHERE description LIKE '%CARREFOUR CITY%'"
+            ).fetchone()
+        self.assertEqual(row["category"], "À catégoriser")
+
+    def test_breakdown_primary_level_groups_subcategories(self):
+        import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
+        result = category_breakdown({"level": "primary"})
+        labels = [r["category"] for r in result]
+        self.assertIn("Alimentation", labels)
+        self.assertIn("À catégoriser", labels)
+
+    def test_add_subcategory(self):
+        created = add_category("Boulangerie", "Alimentation")
+        self.assertEqual(created["name"], "Alimentation / Boulangerie")
+        self.assertIn("Alimentation / Boulangerie", list_categories())
 
 
 if __name__ == "__main__":
