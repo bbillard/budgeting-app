@@ -1,6 +1,22 @@
 const fmt = (n) => `${Number(n).toFixed(2)} €`;
 const qs = (id) => document.getElementById(id);
 
+function fillSelect(select, items, placeholderLabel) {
+  const previous = select.value;
+  select.innerHTML = `<option value="">${placeholderLabel}</option>` + items.map(item => `<option>${item}</option>`).join('');
+  if (previous && items.includes(previous)) {
+    select.value = previous;
+  }
+}
+
+async function refreshCategories() {
+  const categories = await fetch('/api/categories').then(r => r.json());
+  window.ALL_CATEGORIES = categories;
+  fillSelect(qs('categoryFilter'), categories, 'Toutes catégories');
+  fillSelect(qs('bulkCategory'), categories, 'Catégorie bulk');
+}
+
+
 function currentFilters() {
   const p = new URLSearchParams();
   if (qs('month').value) p.set('month', qs('month').value);
@@ -90,21 +106,24 @@ function initTabs() {
 }
 
 async function init() {
-  window.ALL_CATEGORIES = [...qs('categoryFilter').options].slice(1).map(o => o.value);
+  window.ALL_CATEGORIES = [];
   for (let m=1;m<=12;m++) qs('month').innerHTML += `<option value="${m}">${m}</option>`;
   const y = new Date().getFullYear();
   for (let d=y-5; d<=y+1; d++) qs('year').innerHTML += `<option value="${d}">${d}</option>`;
 
   initTabs();
+  await refreshCategories();
   qs('applyFilters').onclick = async () => { await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
 
   qs('transactionsTable').addEventListener('change', async (e) => {
+    if (e.target.classList.contains('select-row')) return;
     const tr = e.target.closest('tr');
     if (!tr) return;
     await updateRow(tr);
+    await refreshCategories();
     await loadDashboard();
     await loadTransactions();
   });
@@ -116,6 +135,7 @@ async function init() {
     await fetch('/api/transactions/bulk-update', {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids, category})
     });
+    await refreshCategories();
     await loadTransactions();
     await loadDashboard();
   };
@@ -128,6 +148,7 @@ async function init() {
     const res = await fetch('/api/import-csv', {method:'POST', body:fd});
     const json = await res.json();
     qs('importStatus').textContent = json.error || `${json.imported} ligne(s) importée(s)`;
+    await refreshCategories();
     await loadDashboard();
     await loadTransactions();
   };
@@ -140,6 +161,7 @@ async function init() {
   qs('resetDb').onclick = async () => {
     if (!confirm('Confirmer reset complet ?')) return;
     await fetch('/api/reset', {method:'POST'});
+    await refreshCategories();
     await loadDashboard();
     await loadTransactions();
   };

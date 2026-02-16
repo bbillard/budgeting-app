@@ -9,7 +9,6 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 from db import init_db
 from services import (
-    CATEGORIES,
     bulk_update,
     category_breakdown,
     export_filtered_transactions,
@@ -19,6 +18,7 @@ from services import (
     reset_db,
     summary,
     update_transaction,
+    list_categories,
 )
 
 app = Flask(__name__)
@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 @app.get("/")
 def index():
-    return render_template("index.html", categories=CATEGORIES)
+    return render_template("index.html")
 
 
 @app.get("/api/summary")
@@ -42,6 +42,11 @@ def api_category_breakdown():
 @app.get("/api/monthly")
 def api_monthly():
     return jsonify(monthly_stats(request.args.to_dict()))
+
+
+@app.get("/api/categories")
+def api_categories():
+    return jsonify(list_categories())
 
 
 @app.get("/api/transactions")

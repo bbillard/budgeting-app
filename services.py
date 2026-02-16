@@ -202,6 +202,23 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     return where_clause, params
 
 
+
+
+def list_categories() -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT DISTINCT category FROM transactions WHERE trim(category) != '' ORDER BY category COLLATE NOCASE ASC").fetchall()
+
+    existing = [r["category"] for r in rows]
+    ordered: list[str] = []
+    seen = set()
+
+    for category in [*CATEGORIES, *existing]:
+        if category and category not in seen:
+            ordered.append(category)
+            seen.add(category)
+
+    return ordered
+
 def summary(args: dict[str, str]) -> dict[str, float]:
     where_clause, params = build_filters(args)
     q = f"""

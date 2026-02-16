@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from db import get_conn, init_db
-from services import import_csv, parse_amount
+from services import import_csv, list_categories, parse_amount
 
 
 SAMPLE_BANK_CSV = """Date de l'opération;Référence de l'opération;Type de l'opération;Catégorie;Sous catégorie;Montant;Commentaire;Détail 1;Détail 2;Détail 3;Détail 4;Détail 5;Détail 6
@@ -47,6 +47,15 @@ class TestServices(unittest.TestCase):
 
         self.assertEqual(rows[2]["category"], "Revenus / Autres revenus")
         self.assertAlmostEqual(rows[2]["amount_original"], 3552.75)
+
+
+    def test_list_categories_includes_imported_compound_categories(self):
+        import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
+        categories = list_categories()
+
+        self.assertIn("Alimentation / Supermarché", categories)
+        self.assertIn("Revenus / Autres revenus", categories)
+        self.assertIn("Logement", categories)
 
 
 if __name__ == "__main__":
