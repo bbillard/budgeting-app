@@ -150,7 +150,6 @@ function renderDashboardScopeLabel() {
     ? `Vue filtrée sur "${state.dashboardParentCategory}"`
     : 'Vue globale';
   qs('dashboardScopeLabel').textContent = `${label} — niveau: ${state.breakdownLevel === 'primary' ? 'catégories principales' : 'sous-catégories'}`;
-  qs('toggleBreakdownLevel').textContent = state.breakdownLevel === 'primary' ? 'Afficher secondaires' : 'Afficher principales';
 }
 
 async function loadDashboard() {
@@ -294,10 +293,6 @@ async function init() {
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
 
-  qs('toggleBreakdownLevel').onclick = async () => {
-    state.breakdownLevel = state.breakdownLevel === 'primary' ? 'secondary' : 'primary';
-    await loadDashboard();
-  };
 
   qs('clearDashboardScope').onclick = async () => {
     state.dashboardParentCategory = '';

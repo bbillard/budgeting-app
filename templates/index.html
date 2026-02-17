@@ -31,18 +31,13 @@
 
     <main>
       <section id="dashboard" class="tab-pane active">
-        <div class="panel row">
-          <button id="toggleBreakdownLevel">Afficher secondaires</button>
-          <span id="dashboardScopeLabel" class="muted"></span>
-          <button id="clearDashboardScope" class="secondary">Réinitialiser vue</button>
-        </div>
         <div class="cards">
           <article class="card"><h3>Dépenses</h3><p id="expenses">0 €</p></article>
           <article class="card"><h3>Revenus</h3><p id="income">0 €</p></article>
           <article class="card"><h3>Solde</h3><p id="balance">0 €</p></article>
         </div>
         <div class="panel">
-          <h3>Répartition par catégorie</h3>
+          <div class="row category-panel-head"><h3>Répartition par catégorie</h3><span id="dashboardScopeLabel" class="muted"></span><button id="clearDashboardScope" class="secondary">Réinitialiser vue</button></div>
           <div id="categoriesBars" class="category-chart"></div>
         </div>
         <div class="panel">
