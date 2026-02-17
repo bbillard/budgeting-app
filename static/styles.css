@@ -164,9 +164,18 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
 .legend-name { font-weight: 600; }
 .legend-val { color: var(--muted); font-weight: 600; }
 
-.histogram { display: flex; gap: 8px; align-items: flex-end; min-height: 170px; padding-bottom: 22px; }
-.histogram .bar { flex: 1; background: linear-gradient(180deg, #7c9dff, #4f46e5); border-radius: 8px 8px 0 0; position: relative; }
-.histogram .bar small { position: absolute; bottom: -20px; left: 0; font-size: 10px; color: var(--muted); }
+.histogram { display: flex; gap: 10px; align-items: flex-end; min-height: 260px; padding: 10px 0 30px; }
+.histogram .bar-wrap { flex: 1; min-width: 56px; text-align: center; }
+.histogram .bar { border-radius: 8px 8px 0 0; position: relative; }
+.histogram .bar.stacked {
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+.histogram .bar.stacked .segment { display: block; width: 100%; }
+.histogram .bar-wrap small { display:block; margin-top: 6px; font-size: 11px; color: var(--muted); text-transform: lowercase; }
 
 .muted { color: var(--muted); font-size: .94rem; }
 #categoryTree ul { margin: 6px 0 12px 18px; }
@@ -179,4 +188,6 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
   .category-chart { grid-template-columns: 1fr; }
   .pie-wrap { min-height: 300px; }
   .pie-wrap svg { width: 320px; height: 320px; }
+  .histogram { min-height: 220px; }
+  .histogram .bar-wrap { min-width: 44px; }
 }

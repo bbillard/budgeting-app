@@ -18,6 +18,7 @@ from services import (
     import_csv,
     list_categories,
     list_category_tree,
+    monthly_breakdown,
     monthly_stats,
     reset_db,
     summary,
@@ -45,6 +46,11 @@ def api_category_breakdown():
 @app.get("/api/monthly")
 def api_monthly():
     return jsonify(monthly_stats(request.args.to_dict()))
+
+
+@app.get("/api/monthly-breakdown")
+def api_monthly_breakdown():
+    return jsonify(monthly_breakdown(request.args.to_dict()))
 
 
 @app.get("/api/categories")

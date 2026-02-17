@@ -9,6 +9,7 @@ from services import (
     delete_category,
     import_csv,
     list_categories,
+    monthly_breakdown,
     parse_amount,
 )
 
@@ -108,6 +109,59 @@ class TestServices(unittest.TestCase):
         created = add_category("Boulangerie", "Alimentation")
         self.assertEqual(created["name"], "Alimentation / Boulangerie")
         self.assertIn("Alimentation / Boulangerie", list_categories())
+
+
+    def test_monthly_breakdown_supports_primary_and_filtered_secondary(self):
+        import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
+
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO transactions (
+                    date, description, amount_original, amount_effective, category,
+                    category_original, is_excluded, split_ratio, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, 1.0, ?, ?)
+                """,
+                (
+                    "2026-02-03",
+                    "Test telecommunication",
+                    -20.0,
+                    -20.0,
+                    "Vie quotidienne / Télécommunication",
+                    "Vie quotidienne",
+                    "2026-02-03 00:00:00",
+                    "2026-02-03 00:00:00",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO transactions (
+                    date, description, amount_original, amount_effective, category,
+                    category_original, is_excluded, split_ratio, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, 1.0, ?, ?)
+                """,
+                (
+                    "2026-02-04",
+                    "Test beauté",
+                    -30.0,
+                    -30.0,
+                    "Vie quotidienne / Beauté",
+                    "Vie quotidienne",
+                    "2026-02-04 00:00:00",
+                    "2026-02-04 00:00:00",
+                ),
+            )
+
+        primary = monthly_breakdown({"level": "primary"})
+        feb = next(item for item in primary if item["month"] == "2026-02")
+        self.assertEqual(feb["categories"][0]["category"], "Vie quotidienne")
+        self.assertAlmostEqual(feb["total"], 50.0)
+
+        secondary = monthly_breakdown({"level": "secondary", "parent_category": "Vie quotidienne"})
+        feb_sec = next(item for item in secondary if item["month"] == "2026-02")
+        labels = [c["category"] for c in feb_sec["categories"]]
+        self.assertIn("Vie quotidienne / Télécommunication", labels)
+        self.assertIn("Vie quotidienne / Beauté", labels)
 
 
 if __name__ == "__main__":

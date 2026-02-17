@@ -8,6 +8,15 @@ const state = {
 
 const PIE_COLORS = ['#5A47E6','#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#3b82f6','#f97316','#e11d48','#84cc16','#0ea5e9'];
 
+const FR_MONTHS_SHORT = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+
+function formatMonthLabel(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const mName = FR_MONTHS_SHORT[(m || 1) - 1] || '';
+  const yy = String(y || '').slice(-2);
+  return `${mName} ${yy}`;
+}
+
 function renderCategoryPie(items) {
   if (!items.length) {
     return '<p class="muted">Aucune donnée pour la période sélectionnée.</p>';
@@ -159,7 +168,7 @@ async function loadDashboard() {
   const [s, c, m] = await Promise.all([
     fetch(`/api/summary?${p}`).then(r => r.json()),
     fetch(`/api/categories-breakdown?${p}`).then(r => r.json()),
-    fetch(`/api/monthly?${p}`).then(r => r.json())
+    fetch(`/api/monthly-breakdown?${p}`).then(r => r.json())
   ]);
 
   qs('expenses').textContent = fmt(s.expenses);
@@ -168,10 +177,24 @@ async function loadDashboard() {
 
   qs('categoriesBars').innerHTML = renderCategoryPie(c);
 
-  const max = Math.max(...m.map(x => x.expenses), 1);
+  const colorByCategory = Object.fromEntries(c.map((item, idx) => [item.category, PIE_COLORS[idx % PIE_COLORS.length]]));
+  const max = Math.max(...m.map(x => Number(x.total || 0)), 1);
+
   qs('monthlyBars').innerHTML = m.map(item => {
-    const h = Math.max(8, (item.expenses / max) * 140);
-    return `<div class="bar" style="height:${h}px" title="${item.month} ${fmt(item.expenses)}"><small>${item.month.slice(5)}</small></div>`;
+    const total = Number(item.total || 0);
+    const h = Math.max(12, (total / max) * 220);
+
+    const segments = (item.categories || []).map(cat => {
+      const ratio = total > 0 ? (Number(cat.amount) / total) * 100 : 0;
+      const color = colorByCategory[cat.category] || PIE_COLORS[(cat.category.length + 3) % PIE_COLORS.length];
+      return `<span class="segment" style="height:${ratio}%; background:${color};" title="${cat.category}: ${fmt(cat.amount)}"></span>`;
+    }).join('');
+
+    const details = (item.categories || []).map(cat => `${cat.category}: ${fmt(cat.amount)}`).join(' | ');
+    return `<div class="bar-wrap" title="${formatMonthLabel(item.month)} — ${fmt(total)}${details ? ' | ' + details : ''}">
+      <div class="bar stacked" style="height:${h}px">${segments}</div>
+      <small>${formatMonthLabel(item.month)}</small>
+    </div>`;
   }).join('');
 
   renderDashboardScopeLabel();

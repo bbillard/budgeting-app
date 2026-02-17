@@ -371,6 +371,44 @@ def category_breakdown(args: dict[str, str]) -> list[dict[str, Any]]:
     ]
 
 
+
+
+def monthly_breakdown(args: dict[str, str]) -> list[dict[str, Any]]:
+    where_clause, params = build_filters(args)
+    level = args.get("level", "primary")
+
+    if level == "secondary":
+        category_expr = "category"
+    else:
+        category_expr = "CASE WHEN instr(category, ' / ') > 0 THEN substr(category, 1, instr(category, ' / ') - 1) ELSE category END"
+
+    q = f"""
+        SELECT
+            substr(date, 1, 7) AS month,
+            {category_expr} AS category,
+            COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
+        FROM transactions
+        {where_clause}
+        GROUP BY month, category
+        HAVING amount > 0
+        ORDER BY month ASC, amount DESC
+    """
+
+    with get_conn() as conn:
+        rows = conn.execute(q, params).fetchall()
+
+    by_month: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_month.setdefault(row["month"], []).append({"category": row["category"], "amount": float(row["amount"])})
+
+    output = []
+    for month in sorted(by_month.keys()):
+        categories = sorted(by_month[month], key=lambda x: x["amount"], reverse=True)
+        total = sum(x["amount"] for x in categories)
+        output.append({"month": month, "total": total, "categories": categories})
+
+    return output
+
 def monthly_stats(args: dict[str, str]) -> list[dict[str, Any]]:
     where_clause, params = build_filters(args)
     q = f"""
