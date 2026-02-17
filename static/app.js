@@ -6,6 +6,51 @@ const state = {
   dashboardParentCategory: ''
 };
 
+const PIE_COLORS = ['#5A47E6','#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#3b82f6','#f97316','#e11d48','#84cc16','#0ea5e9'];
+
+function renderCategoryPie(items) {
+  if (!items.length) {
+    return '<p class="muted">Aucune donnée pour la période sélectionnée.</p>';
+  }
+
+  const total = items.reduce((acc, item) => acc + Number(item.amount), 0) || 1;
+  const radius = 120;
+  const circumference = 2 * Math.PI * radius;
+
+  let offset = 0;
+  const circles = items.map((item, idx) => {
+    const portion = Number(item.amount) / total;
+    const dash = portion * circumference;
+    const color = PIE_COLORS[idx % PIE_COLORS.length];
+    const circle = `<circle r="${radius}" cx="150" cy="150" fill="transparent" stroke="${color}" stroke-width="48" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 150 150)"></circle>`;
+    offset += dash;
+    return circle;
+  }).join('');
+
+  const legend = items.map((item, idx) => {
+    const color = PIE_COLORS[idx % PIE_COLORS.length];
+    const label = state.breakdownLevel === 'primary'
+      ? `<button class="category-link" data-category="${item.category}">${item.category}</button>`
+      : `<span class="legend-name">${item.category}</span>`;
+
+    return `<div class="legend-item">
+      <span class="legend-dot" style="background:${color}"></span>
+      ${label}
+      <span class="legend-val">${fmt(item.amount)} (${item.percentage}%)</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="pie-wrap">
+      <svg width="300" height="300" viewBox="0 0 300 300" aria-label="Camembert catégories">
+        <circle r="${radius}" cx="150" cy="150" fill="transparent" stroke="var(--line)" stroke-width="48"></circle>
+        ${circles}
+      </svg>
+      <div class="pie-center">Total dépenses<strong>${fmt(total)}</strong></div>
+    </div>
+    <div class="pie-legend">${legend}</div>`;
+}
+
+
 function fillSelect(select, items, placeholderLabel) {
   const previous = select.value;
   select.innerHTML = `<option value="">${placeholderLabel}</option>` + items.map(item => `<option>${item}</option>`).join('');
@@ -73,17 +118,7 @@ async function loadDashboard() {
   qs('income').textContent = fmt(s.income);
   qs('balance').textContent = fmt(s.balance);
 
-  qs('categoriesBars').innerHTML = c.map(item => {
-    const isPrimaryClickable = state.breakdownLevel === 'primary';
-    const label = isPrimaryClickable
-      ? `<button class="category-link" data-category="${item.category}">${item.category}</button>`
-      : `<span>${item.category}</span>`;
-    return `
-      <div class="barline">${label} — ${fmt(item.amount)} (${item.percentage}%)
-        <div class="progress"><span style="width:${item.percentage}%"></span></div>
-      </div>
-    `;
-  }).join('');
+  qs('categoriesBars').innerHTML = renderCategoryPie(c);
 
   const max = Math.max(...m.map(x => x.expenses), 1);
   qs('monthlyBars').innerHTML = m.map(item => {
