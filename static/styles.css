@@ -110,6 +110,30 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
   margin-top: 4px;
 }
 .pie-legend { display: grid; gap: 8px; }
+
+.pie-slice {
+  transition: opacity .18s ease, stroke-width .18s ease, filter .18s ease;
+  cursor: pointer;
+}
+.category-chart.is-hovering .pie-slice,
+.category-chart.is-hovering .legend-item {
+  opacity: .35;
+}
+.pie-slice.is-hovered {
+  opacity: 1 !important;
+  stroke-width: 58;
+  filter: brightness(1.05);
+}
+.legend-item {
+  transition: opacity .18s ease, transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.legend-item.is-hovered {
+  opacity: 1 !important;
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px rgba(79,70,229,.18);
+}
+
 .legend-item {
   display: grid;
   grid-template-columns: 12px 1fr auto;

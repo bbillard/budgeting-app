@@ -22,7 +22,7 @@ function renderCategoryPie(items) {
     const portion = Number(item.amount) / total;
     const dash = portion * circumference;
     const color = PIE_COLORS[idx % PIE_COLORS.length];
-    const circle = `<circle r="${radius}" cx="150" cy="150" fill="transparent" stroke="${color}" stroke-width="48" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 150 150)"></circle>`;
+    const circle = `<circle class="pie-slice" data-category="${item.category}" r="${radius}" cx="150" cy="150" fill="transparent" stroke="${color}" stroke-width="48" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 150 150)"></circle>`;
     offset += dash;
     return circle;
   }).join('');
@@ -33,7 +33,7 @@ function renderCategoryPie(items) {
       ? `<button class="category-link" data-category="${item.category}">${item.category}</button>`
       : `<span class="legend-name">${item.category}</span>`;
 
-    return `<div class="legend-item">
+    return `<div class="legend-item" data-category="${item.category}">
       <span class="legend-dot" style="background:${color}"></span>
       ${label}
       <span class="legend-val">${fmt(item.amount)} (${item.percentage}%)</span>
@@ -50,6 +50,55 @@ function renderCategoryPie(items) {
     <div class="pie-legend">${legend}</div>`;
 }
 
+
+function setPieHover(category) {
+  const chart = qs('categoriesBars');
+  if (!chart) return;
+
+  const slices = chart.querySelectorAll('.pie-slice');
+  const legends = chart.querySelectorAll('.legend-item');
+  const hasCategory = Boolean(category);
+
+  chart.classList.toggle('is-hovering', hasCategory);
+
+  slices.forEach((el) => {
+    const match = hasCategory && el.dataset.category === category;
+    el.classList.toggle('is-hovered', match);
+  });
+  legends.forEach((el) => {
+    const match = hasCategory && el.dataset.category === category;
+    el.classList.toggle('is-hovered', match);
+  });
+}
+
+function bindPieInteractions() {
+  const chart = qs('categoriesBars');
+  if (!chart) return;
+
+  chart.onmouseover = (e) => {
+    const target = e.target.closest('[data-category]');
+    if (!target) return;
+    setPieHover(target.dataset.category);
+  };
+
+  chart.onmouseout = (e) => {
+    if (!chart.contains(e.relatedTarget)) {
+      setPieHover('');
+    }
+  };
+
+  chart.onclick = async (e) => {
+    const target = e.target.closest('[data-category]');
+    if (!target) return;
+
+    if (state.breakdownLevel !== 'primary') return;
+
+    state.dashboardParentCategory = target.dataset.category;
+    state.breakdownLevel = 'secondary';
+    await loadDashboard();
+    await loadTransactions();
+  };
+}
 
 function fillSelect(select, items, placeholderLabel) {
   const previous = select.value;
@@ -238,6 +287,7 @@ async function init() {
   await refreshCategories();
   await refreshCategoryTree();
   await initCategoryManager();
+  bindPieInteractions();
 
   qs('applyFilters').onclick = async () => { await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();
@@ -256,14 +306,6 @@ async function init() {
     await loadTransactions();
   };
 
-  qs('categoriesBars').addEventListener('click', async (e) => {
-    const btn = e.target.closest('button.category-link');
-    if (!btn) return;
-    state.dashboardParentCategory = btn.dataset.category;
-    state.breakdownLevel = 'secondary';
-    await loadDashboard();
-    await loadTransactions();
-  });
 
   qs('transactionsTable').addEventListener('change', async (e) => {
     if (e.target.classList.contains('select-row')) return;
