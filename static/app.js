@@ -161,7 +161,7 @@ async function loadDashboard() {
   p.set('level', state.breakdownLevel);
 
   const pMonthly = new URLSearchParams(p.toString());
-  pMonthly.set('level', 'primary');
+  pMonthly.set('level', state.breakdownLevel);
 
   const [s, c, m] = await Promise.all([
     fetch(`/api/summary?${p}`).then(r => r.json()),
@@ -184,8 +184,8 @@ async function loadDashboard() {
 
     const segments = (item.categories || []).map(cat => {
       const ratio = total > 0 ? (Number(cat.amount) / total) * 100 : 0;
-      const primaryKey = toPrimaryCategory(cat.category);
-      const color = colorByCategory[primaryKey] || '#94a3b8';
+      const colorKey = state.breakdownLevel === 'secondary' ? cat.category : toPrimaryCategory(cat.category);
+      const color = colorByCategory[colorKey] || '#94a3b8';
       return `<span class="segment" style="height:${ratio}%; background:${color};" title="${cat.category}: ${fmt(cat.amount)}"></span>`;
     }).join('');
 

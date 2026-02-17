@@ -156,6 +156,7 @@ class TestServices(unittest.TestCase):
         feb = next(item for item in primary if item["month"] == "2026-02")
         self.assertEqual(feb["categories"][0]["category"], "Vie quotidienne")
         self.assertAlmostEqual(feb["total"], 50.0)
+        self.assertEqual(sum(1 for c in feb["categories"] if c["category"] == "Vie quotidienne"), 1)
 
         secondary = monthly_breakdown({"level": "secondary", "parent_category": "Vie quotidienne"})
         feb_sec = next(item for item in secondary if item["month"] == "2026-02")

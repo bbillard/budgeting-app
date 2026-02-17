@@ -383,12 +383,15 @@ def monthly_breakdown(args: dict[str, str]) -> list[dict[str, Any]]:
         category_expr = "CASE WHEN instr(category, ' / ') > 0 THEN substr(category, 1, instr(category, ' / ') - 1) ELSE category END"
 
     q = f"""
-        SELECT
-            substr(date, 1, 7) AS month,
-            {category_expr} AS category,
-            COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
-        FROM transactions
-        {where_clause}
+        SELECT month, category, SUM(amount_part) AS amount
+        FROM (
+            SELECT
+                substr(date, 1, 7) AS month,
+                {category_expr} AS category,
+                CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END AS amount_part
+            FROM transactions
+            {where_clause}
+        ) grouped
         GROUP BY month, category
         HAVING amount > 0
         ORDER BY month ASC, amount DESC
