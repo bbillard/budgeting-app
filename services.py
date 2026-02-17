@@ -290,6 +290,13 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     if args.get("category"):
         where.append("category = ?")
         params.append(args["category"])
+    categories_raw = args.get("categories")
+    if categories_raw:
+        categories = [c.strip() for c in categories_raw.split("||") if c.strip()]
+        if categories:
+            placeholders = ",".join("?" for _ in categories)
+            where.append(f"category IN ({placeholders})")
+            params.extend(categories)
     if args.get("parent_category"):
         where.append("(category = ? OR category LIKE ?)")
         params.append(args["parent_category"])

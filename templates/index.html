@@ -22,11 +22,19 @@
     <section class="filters panel">
       <select id="month"><option value="">Mois</option></select>
       <select id="year"><option value="">Année</option></select>
-      <input type="date" id="startDate" />
-      <input type="date" id="endDate" />
-      <select id="categoryFilter"><option value="">Toutes catégories</option></select>
-      <label><input type="checkbox" id="includeExcluded" /> Inclure exclues</label>
+
+      <div class="date-range-group">
+        <label class="field-label">Début
+          <input type="date" id="startDate" placeholder="Début" />
+        </label>
+        <label class="field-label">Fin
+          <input type="date" id="endDate" placeholder="Fin" />
+        </label>
+      </div>
+
+      <select id="categoryFilter" multiple size="4" title="Choix multiple catégories"></select>
       <button id="applyFilters">Appliquer</button>
+      <button id="resetFilters" class="secondary" hidden>Réinitialiser filtres</button>
     </section>
 
     <main>

@@ -11,6 +11,7 @@ from services import (
     list_categories,
     monthly_breakdown,
     parse_amount,
+    build_filters,
 )
 
 
@@ -110,6 +111,12 @@ class TestServices(unittest.TestCase):
         self.assertEqual(created["name"], "Alimentation / Boulangerie")
         self.assertIn("Alimentation / Boulangerie", list_categories())
 
+
+    def test_build_filters_supports_multiple_categories(self):
+        where, params = build_filters({"categories": "Alimentation / Supermarché||Vie quotidienne / Beauté"})
+
+        self.assertIn("category IN (?,?)", where)
+        self.assertEqual(params[-2:], ["Alimentation / Supermarché", "Vie quotidienne / Beauté"])
 
     def test_monthly_breakdown_supports_primary_and_filtered_secondary(self):
         import_csv(SAMPLE_BANK_CSV.encode("utf-8"))

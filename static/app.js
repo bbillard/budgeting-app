@@ -9,6 +9,7 @@ const state = {
 const PIE_COLORS = ['#5A47E6','#06b6d4','#22c55e','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#3b82f6','#f97316','#e11d48','#84cc16','#0ea5e9'];
 
 const FR_MONTHS_SHORT = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+const FR_MONTHS_FULL = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 function formatMonthLabel(monthKey) {
   const [y, m] = monthKey.split('-').map(Number);
@@ -111,6 +112,7 @@ function bindPieInteractions() {
 
     state.dashboardParentCategory = target.dataset.category;
     state.breakdownLevel = 'secondary';
+    updateResetFiltersButton();
     await loadDashboard();
     await loadTransactions();
   };
@@ -141,6 +143,42 @@ function fillSelect(select, items, placeholderLabel) {
   }
 }
 
+function fillMultiSelect(select, items) {
+  const previous = new Set([...select.selectedOptions].map(o => o.value));
+  select.innerHTML = items.map(item => `<option value="${item}">${item}</option>`).join('');
+  [...select.options].forEach((opt) => {
+    if (previous.has(opt.value)) opt.selected = true;
+  });
+}
+
+function hasDateRange() {
+  return Boolean(qs('startDate').value || qs('endDate').value);
+}
+
+function updateDateRangeMode() {
+  const disabled = hasDateRange();
+  qs('month').disabled = disabled;
+  qs('year').disabled = disabled;
+  qs('month').classList.toggle('is-disabled', disabled);
+  qs('year').classList.toggle('is-disabled', disabled);
+}
+
+function hasActiveFilters() {
+  const catSelected = [...qs('categoryFilter').selectedOptions].length > 0;
+  return Boolean(
+    qs('month').value ||
+    qs('year').value ||
+    qs('startDate').value ||
+    qs('endDate').value ||
+    catSelected ||
+    state.dashboardParentCategory
+  );
+}
+
+function updateResetFiltersButton() {
+  qs('resetFilters').hidden = !hasActiveFilters();
+}
+
 function toPrimaryCategory(category) {
   return category.includes(' / ') ? category.split(' / ')[0] : category;
 }
@@ -149,7 +187,7 @@ async function refreshCategories() {
   const categories = await fetch('/api/categories').then(r => r.json());
   window.ALL_CATEGORIES = categories;
 
-  fillSelect(qs('categoryFilter'), categories, 'Toutes catégories');
+  fillMultiSelect(qs('categoryFilter'), categories);
   fillSelect(qs('bulkCategory'), categories, 'Catégorie bulk');
   fillSelect(qs('categoryToDelete'), categories.filter(c => c !== 'À catégoriser'), 'Catégorie à supprimer');
 
@@ -168,12 +206,16 @@ async function refreshCategoryTree() {
 
 function currentFilters() {
   const p = new URLSearchParams();
-  if (qs('month').value) p.set('month', qs('month').value);
-  if (qs('year').value) p.set('year', qs('year').value);
+  const useDateRange = hasDateRange();
+
+  if (!useDateRange && qs('month').value) p.set('month', qs('month').value);
+  if (!useDateRange && qs('year').value) p.set('year', qs('year').value);
   if (qs('startDate').value) p.set('start_date', qs('startDate').value);
   if (qs('endDate').value) p.set('end_date', qs('endDate').value);
-  if (qs('categoryFilter').value) p.set('category', qs('categoryFilter').value);
-  if (qs('includeExcluded').checked) p.set('include_excluded', '1');
+
+  const categories = [...qs('categoryFilter').selectedOptions].map(o => o.value).filter(Boolean);
+  if (categories.length) p.set('categories', categories.join('||'));
+
   if (state.dashboardParentCategory) p.set('parent_category', state.dashboardParentCategory);
   return p;
 }
@@ -323,7 +365,7 @@ async function initCategoryManager() {
 
 async function init() {
   window.ALL_CATEGORIES = [];
-  for (let m=1;m<=12;m++) qs('month').innerHTML += `<option value="${m}">${m}</option>`;
+  for (let m=1;m<=12;m++) qs('month').innerHTML += `<option value="${m}">${FR_MONTHS_FULL[m-1]}</option>`;
   const y = new Date().getFullYear();
   for (let d=y-5; d<=y+1; d++) qs('year').innerHTML += `<option value="${d}">${d}</option>`;
 
@@ -334,15 +376,39 @@ async function init() {
   bindPieInteractions();
   bindMonthlyInteractions();
 
-  qs('applyFilters').onclick = async () => { await loadDashboard(); await loadTransactions(); };
+  qs('applyFilters').onclick = async () => { updateDateRangeMode(); updateResetFiltersButton(); await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
+
+  ['month','year','startDate','endDate','categoryFilter'].forEach((id) => {
+    const el = qs(id);
+    const evt = id === 'categoryFilter' ? 'change' : 'input';
+    el.addEventListener(evt, () => { updateDateRangeMode(); updateResetFiltersButton(); });
+    if (id === 'month' || id === 'year' || id === 'categoryFilter') {
+      el.addEventListener('change', () => { updateDateRangeMode(); updateResetFiltersButton(); });
+    }
+  });
+
+  qs('resetFilters').onclick = async () => {
+    qs('month').value = '';
+    qs('year').value = '';
+    qs('startDate').value = '';
+    qs('endDate').value = '';
+    [...qs('categoryFilter').options].forEach(opt => { opt.selected = false; });
+    state.dashboardParentCategory = '';
+    state.breakdownLevel = 'primary';
+    updateDateRangeMode();
+    updateResetFiltersButton();
+    await loadDashboard();
+    await loadTransactions();
+  };
 
 
   qs('clearDashboardScope').onclick = async () => {
     state.dashboardParentCategory = '';
     state.breakdownLevel = 'primary';
+    updateResetFiltersButton();
     await loadDashboard();
     await loadTransactions();
   };
@@ -396,6 +462,7 @@ async function init() {
     await fetch('/api/reset', {method:'POST'});
     state.dashboardParentCategory = '';
     state.breakdownLevel = 'primary';
+    updateResetFiltersButton();
     await refreshCategories();
     await refreshCategoryTree();
     await loadDashboard();
@@ -404,6 +471,8 @@ async function init() {
 
   qs('themeBtn').onclick = () => document.body.classList.toggle('dark');
 
+  updateDateRangeMode();
+  updateResetFiltersButton();
   await loadDashboard();
   await loadTransactions();
 }
