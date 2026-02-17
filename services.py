@@ -275,25 +275,10 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     where = []
     params: list[Any] = []
 
-    months_raw = args.get("months")
-    if months_raw:
-        months = [f"{int(m.strip()):02d}" for m in months_raw.split("||") if m.strip()]
-        if months:
-            placeholders = ",".join("?" for _ in months)
-            where.append(f"strftime('%m', date) IN ({placeholders})")
-            params.extend(months)
-    elif args.get("month"):
+    if args.get("month"):
         where.append("strftime('%m', date) = ?")
         params.append(f"{int(args['month']):02d}")
-
-    years_raw = args.get("years")
-    if years_raw:
-        years = [str(int(y.strip())) for y in years_raw.split("||") if y.strip()]
-        if years:
-            placeholders = ",".join("?" for _ in years)
-            where.append(f"strftime('%Y', date) IN ({placeholders})")
-            params.extend(years)
-    elif args.get("year"):
+    if args.get("year"):
         where.append("strftime('%Y', date) = ?")
         params.append(str(int(args["year"])))
     if args.get("start_date"):
