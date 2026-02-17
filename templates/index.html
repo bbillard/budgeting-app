@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Budget Local</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Budget personnel (offline)</h1>
+      <button id="themeBtn">Mode sombre</button>
+    </header>
+
+    <nav>
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="import">Importer</button>
+      <button class="tab" data-tab="categories">Catégories</button>
+    </nav>
+
+    <section class="filters panel">
+      <div id="monthFilter" class="multi-dropdown" data-placeholder="Mois">
+        <button type="button" class="multi-dropdown-toggle">Mois</button>
+        <div class="multi-dropdown-menu"></div>
+      </div>
+      <div id="yearFilter" class="multi-dropdown" data-placeholder="Année">
+        <button type="button" class="multi-dropdown-toggle">Année</button>
+        <div class="multi-dropdown-menu"></div>
+      </div>
+
+      <div class="date-range-group">
+        <label class="field-label">Début
+          <input type="date" id="startDate" placeholder="Début" />
+        </label>
+        <label class="field-label">Fin
+          <input type="date" id="endDate" placeholder="Fin" />
+        </label>
+      </div>
+
+      <div id="categoryFilter" class="multi-dropdown category-filter" data-placeholder="Catégories">
+        <button type="button" class="multi-dropdown-toggle">Catégories</button>
+        <div class="multi-dropdown-menu"></div>
+      </div>
+      <button id="applyFilters">Appliquer</button>
+      <button id="resetFilters" class="secondary" hidden>Réinitialiser filtres</button>
+    </section>
+
+    <main>
+      <section id="dashboard" class="tab-pane active">
+        <div class="cards">
+          <article class="card"><h3>Dépenses</h3><p id="expenses">0 €</p></article>
+          <article class="card"><h3>Revenus</h3><p id="income">0 €</p></article>
+          <article class="card"><h3>Solde</h3><p id="balance">0 €</p></article>
+        </div>
+        <div class="panel">
+          <div class="row category-panel-head"><h3>Répartition par catégorie</h3><button id="clearDashboardScope" class="secondary">Réinitialiser vue</button></div>
+          <div id="categoriesBars" class="category-chart"></div>
+        </div>
+        <div class="panel">
+          <h3>Histogramme mensuel</h3>
+          <div id="monthlyBars" class="histogram"></div>
+        </div>
+      </section>
+
+      <section id="transactions" class="tab-pane">
+        <div class="panel row">
+          <input id="searchText" placeholder="Rechercher un libellé" />
+          <label><input type="checkbox" id="onlyUncategorized" /> À catégoriser</label>
+          <label><input type="checkbox" id="onlyExcluded" /> Exclues</label>
+          <select id="bulkCategory"><option value="">Catégorie bulk</option></select>
+          <button id="bulkApply">Valider sélection</button>
+        </div>
+        <div class="panel table-wrap">
+          <table id="transactionsTable">
+            <thead>
+              <tr>
+                <th></th><th>Date</th><th>Description</th><th>Montant</th><th>Catégorie</th><th>Exclure</th><th>Part prise en compte</th><th>Montant effectif</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="import" class="tab-pane">
+        <div class="panel">
+          <h3>Importer un CSV bancaire</h3>
+          <input type="file" id="csvFile" accept=".csv" />
+          <button id="importBtn">Importer</button>
+          <p id="importStatus"></p>
+        </div>
+        <div class="panel row">
+          <button id="exportCsv">Exporter CSV filtré</button>
+          <button id="backupJson">Backup JSON</button>
+          <button id="resetDb" class="danger">Reset base</button>
+        </div>
+      </section>
+
+      <section id="categories" class="tab-pane">
+        <div class="panel row">
+          <input id="newMainCategory" placeholder="Nouvelle catégorie principale" />
+          <button id="addMainCategory">Ajouter catégorie</button>
+        </div>
+        <div class="panel row">
+          <select id="parentForSubcategory"><option value="">Catégorie parente</option></select>
+          <input id="newSubCategory" placeholder="Nouvelle sous-catégorie" />
+          <button id="addSubCategory">Ajouter sous-catégorie</button>
+        </div>
+        <div class="panel row">
+          <select id="categoryToDelete"><option value="">Catégorie à supprimer</option></select>
+          <button id="deleteCategory" class="danger">Supprimer catégorie</button>
+          <p class="muted">Les transactions associées passeront automatiquement en "À catégoriser".</p>
+        </div>
+        <div class="panel">
+          <h3>Arborescence des catégories</h3>
+          <div id="categoryTree"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
