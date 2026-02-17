@@ -247,6 +247,27 @@ function updateResetFiltersButton() {
   qs('resetFilters').hidden = !hasActiveFilters();
 }
 
+function syncDateBounds() {
+  const start = qs('startDate').value;
+  const end = qs('endDate').value;
+
+  qs('startDate').max = end || '';
+  qs('endDate').min = start || '';
+
+  if (start && end && start > end) {
+    qs('endDate').value = start;
+  }
+}
+
+function getSplitPercentageFromRow(tr) {
+  const custom = tr.querySelector('.split-custom-input');
+  if (custom && !custom.hidden) {
+    return Number(custom.value || 100);
+  }
+  const half = tr.querySelector('.split-half-cb');
+  return half && half.checked ? 50 : 100;
+}
+
 function toPrimaryCategory(category) {
   return category.includes(' / ') ? category.split(' / ')[0] : category;
 }
@@ -342,7 +363,11 @@ async function loadTransactions() {
   if (qs('onlyExcluded').checked) p.set('excluded_only', '1');
   const rows = await fetch(`/api/transactions?${p}`).then(r => r.json());
   const tbody = qs('transactionsTable').querySelector('tbody');
-  tbody.innerHTML = rows.map(row => `
+  tbody.innerHTML = rows.map(row => {
+    const splitPercent = Math.round(Number(row.split_ratio || 1) * 100);
+    const useCustom = splitPercent !== 50 && splitPercent !== 100;
+    const customValue = useCustom ? splitPercent : 100;
+    return `
     <tr data-id="${row.id}">
       <td><input type="checkbox" class="select-row"/></td>
       <td>${row.date}</td>
@@ -351,11 +376,17 @@ async function loadTransactions() {
       <td>
         <select class="category-select">${categoryOptions(row.category)}</select>
       </td>
-      <td><input type="checkbox" class="exclude-cb" ${row.is_excluded ? 'checked' : ''}/></td>
-      <td><input type="number" min="0" max="100" value="${Math.round(row.split_ratio * 100)}" class="split-input"/></td>
+      <td class="cell-center"><input type="checkbox" class="exclude-cb" ${row.is_excluded ? 'checked' : ''}/></td>
+      <td>
+        <div class="split-controls">
+          <label class="split-half"><input type="checkbox" class="split-half-cb" ${splitPercent === 50 ? 'checked' : ''} ${useCustom ? 'disabled' : ''}/> 50%</label>
+          <button type="button" class="split-custom-toggle secondary">${useCustom ? 'Standard ?' : 'Autre ?'}</button>
+          <input type="number" min="0" max="100" value="${customValue}" class="split-custom-input" ${useCustom ? '' : 'hidden'} />
+        </div>
+      </td>
       <td>${fmt(row.amount_effective)}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function categoryOptions(current) {
@@ -368,7 +399,8 @@ async function updateRow(tr) {
   const id = tr.dataset.id;
   const category = tr.querySelector('.category-select').value;
   const is_excluded = tr.querySelector('.exclude-cb').checked;
-  const split_ratio = Number(tr.querySelector('.split-input').value) / 100;
+  const splitPercent = Math.min(100, Math.max(0, getSplitPercentageFromRow(tr)));
+  const split_ratio = splitPercent / 100;
   await fetch(`/api/transactions/${id}`, {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -460,14 +492,26 @@ async function init() {
     });
   });
 
-  qs('applyFilters').onclick = async () => { updateDateRangeMode(); updateResetFiltersButton(); await loadDashboard(); await loadTransactions(); };
+  qs('applyFilters').onclick = async () => {
+    syncDateBounds();
+    const start = qs('startDate').value;
+    const end = qs('endDate').value;
+    if (start && end && start > end) {
+      alert('La date de début doit être antérieure ou égale à la date de fin.');
+      return;
+    }
+    updateDateRangeMode();
+    updateResetFiltersButton();
+    await loadDashboard();
+    await loadTransactions();
+  };
   qs('searchText').oninput = () => loadTransactions();
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
 
   ['startDate', 'endDate'].forEach((id) => {
-    qs(id).addEventListener('input', () => { updateDateRangeMode(); updateResetFiltersButton(); });
-    qs(id).addEventListener('change', () => { updateDateRangeMode(); updateResetFiltersButton(); });
+    qs(id).addEventListener('input', () => { syncDateBounds(); updateDateRangeMode(); updateResetFiltersButton(); });
+    qs(id).addEventListener('change', () => { syncDateBounds(); updateDateRangeMode(); updateResetFiltersButton(); });
   });
 
   qs('resetFilters').onclick = async () => {
@@ -494,6 +538,34 @@ async function init() {
   };
 
 
+  qs('transactionsTable').addEventListener('click', async (e) => {
+    const toggle = e.target.closest('.split-custom-toggle');
+    if (!toggle) return;
+    const tr = toggle.closest('tr');
+    if (!tr) return;
+
+    const customInput = tr.querySelector('.split-custom-input');
+    const halfCb = tr.querySelector('.split-half-cb');
+    const useCustom = customInput.hidden;
+
+    customInput.hidden = !useCustom;
+    halfCb.disabled = useCustom;
+    if (useCustom) {
+      toggle.textContent = 'Standard ?';
+      customInput.focus();
+    } else {
+      toggle.textContent = 'Autre ?';
+      customInput.value = 100;
+      halfCb.checked = false;
+    }
+
+    await updateRow(tr);
+    await refreshCategories();
+    await refreshCategoryTree();
+    await loadDashboard();
+    await loadTransactions();
+  });
+
   qs('transactionsTable').addEventListener('change', async (e) => {
     if (e.target.classList.contains('select-row')) return;
     const tr = e.target.closest('tr');
@@ -501,6 +573,15 @@ async function init() {
     await updateRow(tr);
     await refreshCategories();
     await refreshCategoryTree();
+    await loadDashboard();
+    await loadTransactions();
+  });
+
+  qs('transactionsTable').addEventListener('input', async (e) => {
+    if (!e.target.classList.contains('split-custom-input')) return;
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    await updateRow(tr);
     await loadDashboard();
     await loadTransactions();
   });
@@ -551,6 +632,7 @@ async function init() {
 
   qs('themeBtn').onclick = () => document.body.classList.toggle('dark');
 
+  syncDateBounds();
   updateDateRangeMode();
   updateResetFiltersButton();
   await loadDashboard();

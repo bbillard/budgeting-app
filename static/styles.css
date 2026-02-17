@@ -161,6 +161,32 @@ input, select {
 table { width: 100%; border-collapse: collapse; }
 th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
 
+.cell-center { text-align: center; }
+.cell-center input[type="checkbox"] { margin: 0 auto; display: block; }
+
+.split-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.split-half {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--fg);
+}
+.split-custom-toggle {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.split-custom-input {
+  width: 78px;
+  min-height: 32px;
+}
+
 .category-panel-head { justify-content: flex-start; gap: 10px; margin-bottom: 8px; }
 .category-panel-head h3 { margin: 0; margin-right: 8px; }
 .category-panel-head .secondary { margin-left: 6px; }
