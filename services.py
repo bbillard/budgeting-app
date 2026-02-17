@@ -275,10 +275,25 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
     where = []
     params: list[Any] = []
 
-    if args.get("month"):
+    months_raw = args.get("months")
+    if months_raw:
+        months = [f"{int(m.strip()):02d}" for m in months_raw.split("||") if m.strip()]
+        if months:
+            placeholders = ",".join("?" for _ in months)
+            where.append(f"strftime('%m', date) IN ({placeholders})")
+            params.extend(months)
+    elif args.get("month"):
         where.append("strftime('%m', date) = ?")
         params.append(f"{int(args['month']):02d}")
-    if args.get("year"):
+
+    years_raw = args.get("years")
+    if years_raw:
+        years = [str(int(y.strip())) for y in years_raw.split("||") if y.strip()]
+        if years:
+            placeholders = ",".join("?" for _ in years)
+            where.append(f"strftime('%Y', date) IN ({placeholders})")
+            params.extend(years)
+    elif args.get("year"):
         where.append("strftime('%Y', date) = ?")
         params.append(str(int(args["year"])))
     if args.get("start_date"):
@@ -288,15 +303,28 @@ def build_filters(args: dict[str, str], include_excluded_default: bool = False) 
         where.append("date <= ?")
         params.append(args["end_date"])
     if args.get("category"):
-        where.append("category = ?")
-        params.append(args["category"])
+        category = args["category"].strip()
+        if category and " / " not in category and category != DEFAULT_CATEGORY:
+            where.append("(category = ? OR category LIKE ?)")
+            params.append(category)
+            params.append(f"{category} / %")
+        elif category:
+            where.append("category = ?")
+            params.append(category)
     categories_raw = args.get("categories")
     if categories_raw:
         categories = [c.strip() for c in categories_raw.split("||") if c.strip()]
         if categories:
-            placeholders = ",".join("?" for _ in categories)
-            where.append(f"category IN ({placeholders})")
-            params.extend(categories)
+            sub_clauses: list[str] = []
+            for category in categories:
+                if " / " not in category and category != DEFAULT_CATEGORY:
+                    sub_clauses.append("(category = ? OR category LIKE ?)")
+                    params.append(category)
+                    params.append(f"{category} / %")
+                else:
+                    sub_clauses.append("category = ?")
+                    params.append(category)
+            where.append("(" + " OR ".join(sub_clauses) + ")")
     if args.get("parent_category"):
         where.append("(category = ? OR category LIKE ?)")
         params.append(args["parent_category"])
