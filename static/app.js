@@ -66,15 +66,22 @@ function setPieHover(category) {
 
   const slices = chart.querySelectorAll('.pie-slice');
   const legends = chart.querySelectorAll('.legend-item');
+  const monthChart = qs('monthlyBars');
+  const monthSegments = monthChart ? monthChart.querySelectorAll('.segment') : [];
   const hasCategory = Boolean(category);
 
   chart.classList.toggle('is-hovering', hasCategory);
+  if (monthChart) monthChart.classList.toggle('is-hovering', hasCategory);
 
   slices.forEach((el) => {
     const match = hasCategory && el.dataset.category === category;
     el.classList.toggle('is-hovered', match);
   });
   legends.forEach((el) => {
+    const match = hasCategory && el.dataset.category === category;
+    el.classList.toggle('is-hovered', match);
+  });
+  monthSegments.forEach((el) => {
     const match = hasCategory && el.dataset.category === category;
     el.classList.toggle('is-hovered', match);
   });
@@ -106,6 +113,23 @@ function bindPieInteractions() {
     state.breakdownLevel = 'secondary';
     await loadDashboard();
     await loadTransactions();
+  };
+}
+
+function bindMonthlyInteractions() {
+  const monthly = qs('monthlyBars');
+  if (!monthly) return;
+
+  monthly.onmouseover = (e) => {
+    const target = e.target.closest('[data-category]');
+    if (!target) return;
+    setPieHover(target.dataset.category);
+  };
+
+  monthly.onmouseout = (e) => {
+    if (!monthly.contains(e.relatedTarget)) {
+      setPieHover('');
+    }
   };
 }
 
@@ -186,7 +210,7 @@ async function loadDashboard() {
       const ratio = total > 0 ? (Number(cat.amount) / total) * 100 : 0;
       const colorKey = state.breakdownLevel === 'secondary' ? cat.category : toPrimaryCategory(cat.category);
       const color = colorByCategory[colorKey] || '#94a3b8';
-      return `<span class="segment" style="height:${ratio}%; background:${color};" title="${cat.category}: ${fmt(cat.amount)}"></span>`;
+      return `<span class="segment" data-category="${cat.category}" style="height:${ratio}%; background:${color};" title="${cat.category}: ${fmt(cat.amount)}"></span>`;
     }).join('');
 
     const details = (item.categories || []).map(cat => `${cat.category}: ${fmt(cat.amount)}`).join(' | ');
@@ -308,6 +332,7 @@ async function init() {
   await refreshCategoryTree();
   await initCategoryManager();
   bindPieInteractions();
+  bindMonthlyInteractions();
 
   qs('applyFilters').onclick = async () => { await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();

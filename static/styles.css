@@ -175,6 +175,10 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
   background: var(--panel-soft);
 }
 .histogram .bar.stacked .segment { display: block; width: 100%; }
+
+.histogram.is-hovering .segment { opacity: .28; }
+.histogram .segment { transition: opacity .18s ease, filter .18s ease; }
+.histogram .segment.is-hovered { opacity: 1 !important; filter: brightness(1.08); }
 .histogram .bar-wrap small { display:block; margin-top: 6px; font-size: 11px; color: var(--muted); text-transform: lowercase; }
 
 .muted { color: var(--muted); font-size: .94rem; }
