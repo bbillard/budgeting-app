@@ -143,11 +143,87 @@ function fillSelect(select, items, placeholderLabel) {
   }
 }
 
+<<<<<<< HEAD
 function fillMultiSelect(select, items) {
   const previous = new Set([...select.selectedOptions].map(o => o.value));
   select.innerHTML = items.map(item => `<option value="${item}">${item}</option>`).join('');
   [...select.options].forEach((opt) => {
     if (previous.has(opt.value)) opt.selected = true;
+=======
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function selectedValues(dropdownId) {
+  return [...document.querySelectorAll(`#${dropdownId} .multi-option input:checked`)].map((input) => input.value);
+}
+
+function setSelectedValues(dropdownId, values) {
+  const wanted = new Set(values);
+  document.querySelectorAll(`#${dropdownId} .multi-option input`).forEach((input) => {
+    input.checked = wanted.has(input.value);
+  });
+  updateMultiDropdownLabel(dropdownId);
+}
+
+function updateMultiDropdownLabel(dropdownId) {
+  const dropdown = qs(dropdownId);
+  if (!dropdown) return;
+
+  const selected = selectedValues(dropdownId);
+  const labelsByValue = Object.fromEntries(
+    [...dropdown.querySelectorAll('.multi-option input')].map((input) => [input.value, input.dataset.label || input.value])
+  );
+  const placeholder = dropdown.dataset.placeholder || 'Sélectionner';
+  const toggle = dropdown.querySelector('.multi-dropdown-toggle');
+
+  if (!selected.length) {
+    toggle.textContent = placeholder;
+    return;
+  }
+
+  const selectedLabels = selected.map((val) => labelsByValue[val] || val);
+  toggle.textContent = selectedLabels.length <= 2 ? selectedLabels.join(', ') : `${selectedLabels.length} sélectionnés`;
+}
+
+function renderMultiDropdown(dropdownId, items) {
+  const dropdown = qs(dropdownId);
+  if (!dropdown) return;
+
+  const previous = new Set(selectedValues(dropdownId));
+  const menu = dropdown.querySelector('.multi-dropdown-menu');
+  menu.innerHTML = items.map((item) => {
+    const checked = previous.has(item.value) ? 'checked' : '';
+    return `<label class="multi-option"><input type="checkbox" value="${escapeHtml(item.value)}" data-label="${escapeHtml(item.label)}" ${checked} /><span>${escapeHtml(item.label)}</span></label>`;
+  }).join('');
+
+  updateMultiDropdownLabel(dropdownId);
+}
+
+function initMultiDropdown(dropdownId) {
+  const dropdown = qs(dropdownId);
+  if (!dropdown) return;
+
+  const toggle = dropdown.querySelector('.multi-dropdown-toggle');
+  toggle.onclick = () => {
+    if (dropdown.classList.contains('is-disabled')) return;
+    document.querySelectorAll('.multi-dropdown.is-open').forEach((el) => {
+      if (el !== dropdown) el.classList.remove('is-open');
+    });
+    dropdown.classList.toggle('is-open');
+  };
+
+  dropdown.addEventListener('change', (e) => {
+    if (!e.target.matches('.multi-option input')) return;
+    updateMultiDropdownLabel(dropdownId);
+    updateDateRangeMode();
+    updateResetFiltersButton();
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
   });
 }
 
@@ -157,6 +233,7 @@ function hasDateRange() {
 
 function updateDateRangeMode() {
   const disabled = hasDateRange();
+<<<<<<< HEAD
   qs('month').disabled = disabled;
   qs('year').disabled = disabled;
   qs('month').classList.toggle('is-disabled', disabled);
@@ -171,6 +248,22 @@ function hasActiveFilters() {
     qs('startDate').value ||
     qs('endDate').value ||
     catSelected ||
+=======
+  ['monthFilter', 'yearFilter'].forEach((id) => {
+    const el = qs(id);
+    if (!el) return;
+    el.classList.toggle('is-disabled', disabled);
+  });
+}
+
+function hasActiveFilters() {
+  return Boolean(
+    selectedValues('monthFilter').length ||
+    selectedValues('yearFilter').length ||
+    qs('startDate').value ||
+    qs('endDate').value ||
+    selectedValues('categoryFilter').length ||
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
     state.dashboardParentCategory
   );
 }
@@ -187,7 +280,11 @@ async function refreshCategories() {
   const categories = await fetch('/api/categories').then(r => r.json());
   window.ALL_CATEGORIES = categories;
 
+<<<<<<< HEAD
   fillMultiSelect(qs('categoryFilter'), categories);
+=======
+  renderMultiDropdown('categoryFilter', categories.map((name) => ({ value: name, label: name })));
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
   fillSelect(qs('bulkCategory'), categories, 'Catégorie bulk');
   fillSelect(qs('categoryToDelete'), categories.filter(c => c !== 'À catégoriser'), 'Catégorie à supprimer');
 
@@ -208,12 +305,24 @@ function currentFilters() {
   const p = new URLSearchParams();
   const useDateRange = hasDateRange();
 
+<<<<<<< HEAD
   if (!useDateRange && qs('month').value) p.set('month', qs('month').value);
   if (!useDateRange && qs('year').value) p.set('year', qs('year').value);
   if (qs('startDate').value) p.set('start_date', qs('startDate').value);
   if (qs('endDate').value) p.set('end_date', qs('endDate').value);
 
   const categories = [...qs('categoryFilter').selectedOptions].map(o => o.value).filter(Boolean);
+=======
+  const months = selectedValues('monthFilter');
+  const years = selectedValues('yearFilter');
+  const categories = selectedValues('categoryFilter');
+
+  if (!useDateRange && months.length) p.set('months', months.join('||'));
+  if (!useDateRange && years.length) p.set('years', years.join('||'));
+  if (qs('startDate').value) p.set('start_date', qs('startDate').value);
+  if (qs('endDate').value) p.set('end_date', qs('endDate').value);
+
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
   if (categories.length) p.set('categories', categories.join('||'));
 
   if (state.dashboardParentCategory) p.set('parent_category', state.dashboardParentCategory);
@@ -365,9 +474,19 @@ async function initCategoryManager() {
 
 async function init() {
   window.ALL_CATEGORIES = [];
+<<<<<<< HEAD
   for (let m=1;m<=12;m++) qs('month').innerHTML += `<option value="${m}">${FR_MONTHS_FULL[m-1]}</option>`;
   const y = new Date().getFullYear();
   for (let d=y-5; d<=y+1; d++) qs('year').innerHTML += `<option value="${d}">${d}</option>`;
+=======
+  const monthItems = FR_MONTHS_FULL.map((label, idx) => ({ value: String(idx + 1), label }));
+  renderMultiDropdown('monthFilter', monthItems);
+
+  const y = new Date().getFullYear();
+  const yearItems = [];
+  for (let d = y - 5; d <= y + 1; d++) yearItems.push({ value: String(d), label: String(d) });
+  renderMultiDropdown('yearFilter', yearItems);
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
 
   initTabs();
   await refreshCategories();
@@ -375,12 +494,25 @@ async function init() {
   await initCategoryManager();
   bindPieInteractions();
   bindMonthlyInteractions();
+<<<<<<< HEAD
+=======
+  initMultiDropdown('monthFilter');
+  initMultiDropdown('yearFilter');
+  initMultiDropdown('categoryFilter');
+
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.multi-dropdown.is-open').forEach((el) => {
+      if (!el.contains(e.target)) el.classList.remove('is-open');
+    });
+  });
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
 
   qs('applyFilters').onclick = async () => { updateDateRangeMode(); updateResetFiltersButton(); await loadDashboard(); await loadTransactions(); };
   qs('searchText').oninput = () => loadTransactions();
   qs('onlyUncategorized').onchange = () => loadTransactions();
   qs('onlyExcluded').onchange = () => loadTransactions();
 
+<<<<<<< HEAD
   ['month','year','startDate','endDate','categoryFilter'].forEach((id) => {
     const el = qs(id);
     const evt = id === 'categoryFilter' ? 'change' : 'input';
@@ -396,6 +528,19 @@ async function init() {
     qs('startDate').value = '';
     qs('endDate').value = '';
     [...qs('categoryFilter').options].forEach(opt => { opt.selected = false; });
+=======
+  ['startDate', 'endDate'].forEach((id) => {
+    qs(id).addEventListener('input', () => { updateDateRangeMode(); updateResetFiltersButton(); });
+    qs(id).addEventListener('change', () => { updateDateRangeMode(); updateResetFiltersButton(); });
+  });
+
+  qs('resetFilters').onclick = async () => {
+    setSelectedValues('monthFilter', []);
+    setSelectedValues('yearFilter', []);
+    setSelectedValues('categoryFilter', []);
+    qs('startDate').value = '';
+    qs('endDate').value = '';
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
     state.dashboardParentCategory = '';
     state.breakdownLevel = 'primary';
     updateDateRangeMode();

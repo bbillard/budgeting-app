@@ -70,12 +70,66 @@ button.danger { background: linear-gradient(135deg, #dc2626, #ef4444); }
   font-size: 12px;
   color: var(--muted);
 }
+<<<<<<< HEAD
 #categoryFilter {
   min-width: 240px;
   max-width: 280px;
   min-height: 110px;
 }
 #month.is-disabled, #year.is-disabled {
+=======
+.multi-dropdown {
+  position: relative;
+  min-width: 150px;
+}
+.multi-dropdown-toggle {
+  width: 100%;
+  min-height: 38px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 32px 8px 10px;
+  font-weight: 500;
+  position: relative;
+}
+.multi-dropdown-toggle::after {
+  content: '▾';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.multi-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow: auto;
+  z-index: 50;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+}
+.multi-dropdown.is-open .multi-dropdown-menu { display: block; }
+.multi-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.multi-option:hover { background: var(--panel-soft); }
+.multi-dropdown.category-filter { min-width: 280px; }
+.multi-dropdown.is-disabled .multi-dropdown-toggle {
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
   opacity: .55;
   cursor: not-allowed;
 }
@@ -218,7 +272,11 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
 @media (max-width: 980px) {
   .cards { grid-template-columns: 1fr; }
   .date-range-group { border-left: 0; margin-left: 0; padding-left: 0; }
+<<<<<<< HEAD
   #categoryFilter { min-width: 100%; max-width: 100%; }
+=======
+  .multi-dropdown.category-filter { min-width: 100%; }
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
   .category-panel-head { justify-content: flex-start; gap: 10px; margin-bottom: 8px; }
   .category-panel-head h3 { margin: 0; margin-right: 8px; }
   .category-panel-head .secondary { margin-left: 6px; }

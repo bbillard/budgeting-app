@@ -112,11 +112,27 @@ class TestServices(unittest.TestCase):
         self.assertIn("Alimentation / Boulangerie", list_categories())
 
 
+<<<<<<< HEAD
     def test_build_filters_supports_multiple_categories(self):
         where, params = build_filters({"categories": "Alimentation / Supermarché||Vie quotidienne / Beauté"})
 
         self.assertIn("category IN (?,?)", where)
         self.assertEqual(params[-2:], ["Alimentation / Supermarché", "Vie quotidienne / Beauté"])
+=======
+    def test_build_filters_supports_multiple_months_years_and_categories(self):
+        where, params = build_filters({
+            "months": "1||2",
+            "years": "2025||2026",
+            "categories": "Alimentation / Supermarché||Vie quotidienne / Beauté",
+        })
+
+        self.assertIn("strftime('%m', date) IN (?,?)", where)
+        self.assertIn("strftime('%Y', date) IN (?,?)", where)
+        self.assertIn("category IN (?,?)", where)
+        self.assertEqual(params[:2], ["01", "02"])
+        self.assertEqual(params[2:4], ["2025", "2026"])
+        self.assertEqual(params[4:6], ["Alimentation / Supermarché", "Vie quotidienne / Beauté"])
+>>>>>>> origin/codex/create-local-budget-management-application-7xolym
 
     def test_monthly_breakdown_supports_primary_and_filtered_secondary(self):
         import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
