@@ -344,14 +344,19 @@ def category_breakdown(args: dict[str, str]) -> list[dict[str, Any]]:
         """
     else:
         q = f"""
-            SELECT CASE
-                     WHEN instr(category, ' / ') > 0 THEN substr(category, 1, instr(category, ' / ') - 1)
-                     ELSE category
-                   END AS category,
-                   COALESCE(SUM(CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END), 0) AS amount
-            FROM transactions
-            {where_clause}
-            GROUP BY category
+            SELECT primary_category AS category,
+                   SUM(amount_part) AS amount
+            FROM (
+                SELECT
+                    CASE
+                        WHEN instr(category, ' / ') > 0 THEN substr(category, 1, instr(category, ' / ') - 1)
+                        ELSE category
+                    END AS primary_category,
+                    CASE WHEN amount_original < 0 THEN ABS(amount_effective) ELSE 0 END AS amount_part
+                FROM transactions
+                {where_clause}
+            ) grouped
+            GROUP BY primary_category
             HAVING amount > 0
             ORDER BY amount DESC
         """

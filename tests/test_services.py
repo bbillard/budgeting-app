@@ -75,10 +75,34 @@ class TestServices(unittest.TestCase):
 
     def test_breakdown_primary_level_groups_subcategories(self):
         import_csv(SAMPLE_BANK_CSV.encode("utf-8"))
+
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO transactions (
+                    date, description, amount_original, amount_effective, category,
+                    category_original, is_excluded, split_ratio, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, 1.0, ?, ?)
+                """,
+                (
+                    "2026-01-27",
+                    "Test restaurant",
+                    -10.0,
+                    -10.0,
+                    "Alimentation / Restaurant",
+                    "Alimentation",
+                    "2026-01-27 00:00:00",
+                    "2026-01-27 00:00:00",
+                ),
+            )
+
         result = category_breakdown({"level": "primary"})
-        labels = [r["category"] for r in result]
-        self.assertIn("Alimentation", labels)
-        self.assertIn("À catégoriser", labels)
+        by_name = {r["category"]: r["amount"] for r in result}
+
+        self.assertIn("Alimentation", by_name)
+        self.assertEqual(sum(1 for r in result if r["category"] == "Alimentation"), 1)
+        self.assertAlmostEqual(by_name["Alimentation"], 12.75)
+        self.assertIn("À catégoriser", by_name)
 
     def test_add_subcategory(self):
         created = add_category("Boulangerie", "Alimentation")
