@@ -87,7 +87,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
 
 .category-panel-head { justify-content: flex-start; gap: 10px; margin-bottom: 8px; }
 .category-panel-head h3 { margin: 0; margin-right: 8px; }
-.category-panel-head .secondary { margin-left: auto; }
+.category-panel-head .secondary { margin-left: 6px; }
 
 .category-chart {
   display: grid;
@@ -184,7 +184,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
   .cards { grid-template-columns: 1fr; }
   .category-panel-head { justify-content: flex-start; gap: 10px; margin-bottom: 8px; }
   .category-panel-head h3 { margin: 0; margin-right: 8px; }
-  .category-panel-head .secondary { margin-left: 0; }
+  .category-panel-head .secondary { margin-left: 6px; }
   .category-chart { grid-template-columns: 1fr; }
   .pie-wrap { min-height: 300px; }
   .pie-wrap svg { width: 320px; height: 320px; }

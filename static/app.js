@@ -154,21 +154,19 @@ function currentFilters() {
   return p;
 }
 
-function renderDashboardScopeLabel() {
-  const label = state.dashboardParentCategory
-    ? `Vue filtrée sur "${state.dashboardParentCategory}"`
-    : 'Vue globale';
-  qs('dashboardScopeLabel').textContent = `${label} — niveau: ${state.breakdownLevel === 'primary' ? 'catégories principales' : 'sous-catégories'}`;
-}
+function renderDashboardScopeLabel() {}
 
 async function loadDashboard() {
   const p = currentFilters();
   p.set('level', state.breakdownLevel);
 
+  const pMonthly = new URLSearchParams(p.toString());
+  pMonthly.set('level', 'primary');
+
   const [s, c, m] = await Promise.all([
     fetch(`/api/summary?${p}`).then(r => r.json()),
     fetch(`/api/categories-breakdown?${p}`).then(r => r.json()),
-    fetch(`/api/monthly-breakdown?${p}`).then(r => r.json())
+    fetch(`/api/monthly-breakdown?${pMonthly}`).then(r => r.json())
   ]);
 
   qs('expenses').textContent = fmt(s.expenses);
@@ -186,7 +184,8 @@ async function loadDashboard() {
 
     const segments = (item.categories || []).map(cat => {
       const ratio = total > 0 ? (Number(cat.amount) / total) * 100 : 0;
-      const color = colorByCategory[cat.category] || PIE_COLORS[(cat.category.length + 3) % PIE_COLORS.length];
+      const primaryKey = toPrimaryCategory(cat.category);
+      const color = colorByCategory[primaryKey] || '#94a3b8';
       return `<span class="segment" style="height:${ratio}%; background:${color};" title="${cat.category}: ${fmt(cat.amount)}"></span>`;
     }).join('');
 
@@ -197,7 +196,6 @@ async function loadDashboard() {
     </div>`;
   }).join('');
 
-  renderDashboardScopeLabel();
 }
 
 async function loadTransactions() {
